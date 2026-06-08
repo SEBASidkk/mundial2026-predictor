@@ -1,4 +1,3 @@
-import math
 from typing import Dict, List
 
 COMPETITION_WEIGHTS = {
