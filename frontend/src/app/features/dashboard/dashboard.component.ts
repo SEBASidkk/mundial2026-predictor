@@ -1,4 +1,4 @@
-import { Component, OnInit } from '@angular/core';
+import { Component, OnInit, ChangeDetectorRef } from '@angular/core';
 import { CommonModule, DatePipe } from '@angular/common';
 import { ApiService } from '../../core/services/api.service';
 import { MatchCardComponent } from '../../shared/components/match-card/match-card.component';
@@ -16,22 +16,28 @@ export class DashboardComponent implements OnInit {
   loading = true;
   error: string | null = null;
 
-  constructor(private api: ApiService) {}
+  constructor(private api: ApiService, private cdr: ChangeDetectorRef) {}
 
   ngOnInit(): void {
     this.api.getMatches().subscribe({
       next: (m) => {
         this.matches = m.filter(x => !x.played).slice(0, 6);
         this.loading = false;
+        this.cdr.detectChanges();
       },
-      error: () => {
+      error: (e) => {
+        console.error('[Dashboard] getMatches error:', e);
         this.error = 'No se pudo cargar los partidos.';
         this.loading = false;
+        this.cdr.detectChanges();
       },
     });
     this.api.getModelMeta().subscribe({
-      next: (m) => (this.meta = m),
-      error: (e) => console.error('[DashboardComponent] getModelMeta error:', e),
+      next: (m) => {
+        this.meta = m;
+        this.cdr.detectChanges();
+      },
+      error: (e) => console.error('[Dashboard] getModelMeta error:', e),
     });
   }
 
