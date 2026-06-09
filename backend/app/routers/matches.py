@@ -50,11 +50,30 @@ def _build_prediction_out(pred: Prediction) -> PredictionOut | None:
 def list_matches(db: Session = Depends(get_db)):
     matches = (
         db.query(Match)
-        .options(joinedload(Match.home_team), joinedload(Match.away_team))
+        .options(
+            joinedload(Match.home_team),
+            joinedload(Match.away_team),
+            joinedload(Match.prediction),
+        )
         .order_by(Match.kickoff_utc)
         .all()
     )
-    return matches
+    return [
+        MatchOut(
+            id=m.id,
+            home_team=m.home_team,
+            away_team=m.away_team,
+            kickoff_utc=m.kickoff_utc,
+            stage=m.stage,
+            group=m.group,
+            venue_city=m.venue_city,
+            played=m.played,
+            home_goals=m.home_goals,
+            away_goals=m.away_goals,
+            prediction=_build_prediction_out(m.prediction),
+        )
+        for m in matches
+    ]
 
 
 @router.get("/match/{match_id}", response_model=MatchDetailOut)

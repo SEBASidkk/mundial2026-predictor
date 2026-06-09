@@ -15,10 +15,11 @@ class MatchOut(BaseModel):
     played: bool
     home_goals: int | None
     away_goals: int | None
+    prediction: PredictionOut | None = None
 
     class Config:
         from_attributes = True
 
 
 class MatchDetailOut(MatchOut):
-    prediction: PredictionOut | None
+    pass
