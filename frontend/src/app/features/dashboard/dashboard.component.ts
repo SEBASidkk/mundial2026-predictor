@@ -31,6 +31,7 @@ export class DashboardComponent implements OnInit {
     });
     this.api.getModelMeta().subscribe({
       next: (m) => (this.meta = m),
+      error: (e) => console.error('[DashboardComponent] getModelMeta error:', e),
     });
   }
 
