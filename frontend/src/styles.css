@@ -1,0 +1,84 @@
+@import url('https://fonts.googleapis.com/css2?family=Fira+Code:wght@400;500;600;700&family=Fira+Sans:wght@300;400;500;600;700&display=swap');
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  --bg:      #050A14;
+  --surface: #0D1829;
+  --border:  #1E3A5F;
+  --primary: #1E40AF;
+  --blue:    #3B82F6;
+  --accent:  #D97706;
+  --amber:   #F59E0B;
+  --win:     #22C55E;
+  --draw:    #94A3B8;
+  --loss:    #EF4444;
+  --text:    #F8FAFC;
+  --muted:   #94A3B8;
+}
+
+* { box-sizing: border-box; }
+
+body {
+  background-color: var(--bg);
+  color: var(--text);
+  font-family: 'Fira Sans', sans-serif;
+  margin: 0;
+}
+
+::-webkit-scrollbar { width: 6px; height: 6px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
+
+.card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 16px;
+}
+
+.card-label {
+  font-size: 11px; font-weight: 600; letter-spacing: 0.08em;
+  text-transform: uppercase; color: var(--muted); margin-bottom: 8px;
+  display: block;
+}
+
+.section-title {
+  font-size: 13px; font-weight: 600; color: var(--text);
+  margin-bottom: 12px; display: flex; align-items: center; gap: 8px;
+}
+.section-title::after {
+  content: ''; flex: 1; height: 1px; background: var(--border);
+}
+
+.badge {
+  display: inline-flex; align-items: center; padding: 2px 8px;
+  border-radius: 12px; font-size: 11px; font-weight: 600;
+}
+.badge-win { background: rgba(34,197,94,0.15); color: var(--win); border: 1px solid rgba(34,197,94,0.3); }
+.badge-amber { background: rgba(217,119,6,0.15); color: var(--amber); border: 1px solid rgba(217,119,6,0.3); }
+
+.prob-pill {
+  font-family: 'Fira Code', monospace; font-size: 11px; font-weight: 600;
+  padding: 2px 7px; border-radius: 4px;
+}
+.prob-home { background: rgba(59,130,246,0.2); color: var(--blue); }
+.prob-draw { background: rgba(148,163,184,0.15); color: var(--draw); }
+.prob-away { background: rgba(239,68,68,0.15); color: var(--loss); }
+
+.chip {
+  font-family: 'Fira Code', monospace; font-size: 10px; padding: 2px 8px;
+  border-radius: 4px; background: rgba(255,255,255,0.05);
+  border: 1px solid var(--border); color: var(--muted);
+}
+.chip-accent {
+  background: rgba(217,119,6,0.15); border-color: rgba(217,119,6,0.4);
+  color: var(--amber);
+}
+
+.market-item {
+  background: rgba(255,255,255,0.03); border: 1px solid var(--border);
+  border-radius: 8px; padding: 12px;
+}

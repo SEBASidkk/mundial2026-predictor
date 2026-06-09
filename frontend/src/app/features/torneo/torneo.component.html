@@ -1,0 +1,51 @@
+<h1 class="text-xl font-bold mb-5">Tabla de posiciones — Mundial 2026</h1>
+
+@if (loading) {
+  <p class="text-center py-10" style="color:#94A3B8;">Cargando tabla…</p>
+}
+
+@if (!loading) {
+  <div class="card p-3">
+    <table class="w-full text-sm">
+      <thead>
+        <tr class="text-xs uppercase tracking-wider border-b"
+            style="color:#94A3B8; border-color:#1E3A5F;">
+          <th class="text-left p-3 font-semibold">Equipo</th>
+          <th class="p-3 font-semibold text-center">PJ</th>
+          <th class="p-3 font-semibold text-center">G</th>
+          <th class="p-3 font-semibold text-center">E</th>
+          <th class="p-3 font-semibold text-center">P</th>
+          <th class="p-3 font-semibold text-center">GF</th>
+          <th class="p-3 font-semibold text-center">GC</th>
+          <th class="p-3 font-semibold text-center">DG</th>
+          <th class="p-3 font-semibold text-center" style="color:#3B82F6;">Pts</th>
+        </tr>
+      </thead>
+      <tbody>
+        @for (s of sortedStandings; track s.name; let i = $index) {
+          <tr class="border-b" style="border-color:rgba(30,58,95,0.5);">
+            <td class="p-3">
+              <span class="font-mono text-xs mr-2" style="color:#94A3B8;">{{ i + 1 }}</span>
+              {{ s.name }}
+            </td>
+            <td class="p-3 text-center font-mono">{{ s.P }}</td>
+            <td class="p-3 text-center font-mono" style="color:#22C55E;">{{ s.W }}</td>
+            <td class="p-3 text-center font-mono" style="color:#94A3B8;">{{ s.D }}</td>
+            <td class="p-3 text-center font-mono" style="color:#EF4444;">{{ s.L }}</td>
+            <td class="p-3 text-center font-mono">{{ s.GF }}</td>
+            <td class="p-3 text-center font-mono">{{ s.GA }}</td>
+            <td class="p-3 text-center font-mono">{{ s.GF - s.GA }}</td>
+            <td class="p-3 text-center font-mono font-bold" style="color:#3B82F6;">{{ s.Pts }}</td>
+          </tr>
+        }
+        @if (sortedStandings.length === 0) {
+          <tr>
+            <td colspan="9" class="p-6 text-center" style="color:#94A3B8;">
+              No hay partidos jugados aún.
+            </td>
+          </tr>
+        }
+      </tbody>
+    </table>
+  </div>
+}

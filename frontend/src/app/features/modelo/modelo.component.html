@@ -1,0 +1,73 @@
+<h1 class="text-xl font-bold mb-5">Transparencia del modelo</h1>
+
+<div class="grid grid-cols-2 gap-5">
+  <div>
+    <h2 class="section-title">Arquitectura del ensemble</h2>
+    <div class="card p-4 mb-4">
+      @for (m of models; track m.name) {
+        <div class="flex gap-4 mb-4 last:mb-0">
+          <div class="w-1 rounded flex-shrink-0" [style.background]="m.color"
+               style="min-height:48px;"></div>
+          <div>
+            <p class="font-semibold text-sm mb-1">
+              {{ m.name }}
+              <span class="font-mono text-xs ml-2" [style.color]="m.color">
+                {{ weight(m.weightKey) }}
+              </span>
+            </p>
+            <p class="text-xs" style="color:#94A3B8; line-height:1.5;">{{ m.description }}</p>
+          </div>
+        </div>
+      }
+      <div class="mt-4 pt-4 border-t text-center font-mono text-xs"
+           style="border-color:#1E3A5F; color:#94A3B8;">
+        P_final = 0.40 × Dixon-Coles + 0.35 × XGBoost + 0.25 × ELO
+      </div>
+    </div>
+
+    <div class="card p-4">
+      <span class="card-label">Metodología</span>
+      @if (meta) {
+        <p class="text-xs leading-relaxed" style="color:#94A3B8;">{{ meta.methodology }}</p>
+      }
+    </div>
+  </div>
+
+  <div>
+    <h2 class="section-title">Mercados cubiertos</h2>
+    <div class="card p-4 mb-4">
+      <div class="grid grid-cols-2 gap-2">
+        @for (m of markets; track m) {
+          <div class="p-2 rounded text-xs border"
+               style="background:rgba(255,255,255,0.03); border-color:#1E3A5F;">
+            {{ m }}
+          </div>
+        }
+      </div>
+    </div>
+
+    @if (meta) {
+      <div class="card p-4">
+        <span class="card-label">Estado en tiempo real</span>
+        <div class="flex flex-col gap-3">
+          <div class="flex justify-between">
+            <span class="text-sm" style="color:#94A3B8;">Predicciones activas</span>
+            <span class="font-mono font-bold text-sm" style="color:#3B82F6;">
+              {{ meta.predictions_count }}
+            </span>
+          </div>
+          <div class="flex justify-between">
+            <span class="text-sm" style="color:#94A3B8;">Versión del modelo</span>
+            <span class="badge badge-win">v{{ meta.model_version }}</span>
+          </div>
+          <div class="flex justify-between">
+            <span class="text-sm" style="color:#94A3B8;">Última actualización</span>
+            <span class="font-mono text-sm" style="color:#F59E0B;">
+              {{ meta.last_updated | date:'dd MMM · HH:mm' }}
+            </span>
+          </div>
+        </div>
+      </div>
+    }
+  </div>
+</div>

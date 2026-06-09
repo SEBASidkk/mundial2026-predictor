@@ -1,0 +1,44 @@
+<a [routerLink]="['/partido', match.id]"
+   class="block rounded-xl border p-4 cursor-pointer transition-colors duration-150"
+   style="background:#0D1829; border-color:#1E3A5F; text-decoration:none; color:inherit;"
+   (mouseenter)="el.style.borderColor='#3B82F6'"
+   (mouseleave)="el.style.borderColor='#1E3A5F'"
+   #el>
+
+  <div class="flex justify-between items-center mb-3">
+    <span class="text-xs font-semibold tracking-wider uppercase" style="color:#D97706;">
+      {{ stageLabel }}{{ match.group ? ' · Grupo ' + match.group : '' }}
+    </span>
+    <span class="font-mono text-xs" style="color:#94A3B8;">
+      {{ match.kickoff_utc | date:'dd MMM · HH:mm' }} UTC
+    </span>
+  </div>
+
+  <div class="flex items-center justify-between gap-3">
+    <span class="font-semibold text-sm flex-1">{{ match.home_team.name }}</span>
+    <div class="text-center min-w-[96px]">
+      <div class="flex gap-1 justify-center mb-1">
+        <span class="prob-pill prob-home">{{ (homeProb * 100).toFixed(0) }}%</span>
+        <span class="prob-pill prob-draw">{{ (drawProb * 100).toFixed(0) }}%</span>
+        <span class="prob-pill prob-away">{{ (awayProb * 100).toFixed(0) }}%</span>
+      </div>
+      <span class="text-xs font-mono" style="color:#94A3B8;">LOC · EMP · VIS</span>
+    </div>
+    <span class="font-semibold text-sm flex-1 text-right">{{ match.away_team.name }}</span>
+  </div>
+
+  <div class="flex h-1 rounded overflow-hidden mt-3 gap-px">
+    <div class="rounded-l" style="background:#3B82F6" [style.width.%]="homeProb * 100"></div>
+    <div style="background:#94A3B8" [style.width.%]="drawProb * 100"></div>
+    <div class="rounded-r flex-1" style="background:#EF4444"></div>
+  </div>
+
+  @if (match.prediction) {
+    <div class="flex flex-wrap gap-2 mt-3">
+      <span class="chip chip-accent">Over 2.5: {{ (over25 * 100).toFixed(0) }}%</span>
+      <span class="chip chip-accent">BTTS: {{ (btts * 100).toFixed(0) }}%</span>
+      <span class="chip">{{ topScore }}</span>
+      <span class="chip">Conf: {{ (confidence * 100).toFixed(0) }}%</span>
+    </div>
+  }
+</a>

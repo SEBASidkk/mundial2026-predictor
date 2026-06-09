@@ -1,0 +1,106 @@
+<div class="grid grid-cols-4 gap-4 mb-5">
+  <div class="card">
+    <span class="card-label">Partidos totales</span>
+    <p class="font-mono text-3xl font-bold">104</p>
+    <p class="text-xs mt-2" style="color:#94A3B8">Mundial 2026 · 48 equipos</p>
+  </div>
+  <div class="card">
+    <span class="card-label">Predicciones activas</span>
+    <p class="font-mono text-3xl font-bold" style="color:#3B82F6">{{ matches.length }}</p>
+    <p class="text-xs mt-2" style="color:#22C55E">↑ Fase de grupos</p>
+  </div>
+  <div class="card">
+    <span class="card-label">Confianza promedio</span>
+    <p class="font-mono text-3xl font-bold" style="color:#22C55E">81%</p>
+    <p class="text-xs mt-2" style="color:#22C55E">↑ Modelo estable</p>
+  </div>
+  @if (meta) {
+    <div class="card">
+      <span class="card-label">Última actualización</span>
+      <p class="font-mono text-xl font-bold" style="color:#F59E0B">
+        {{ meta.last_updated | date:'dd MMM · HH:mm' }}
+      </p>
+      <p class="text-xs mt-2" style="color:#94A3B8">v{{ meta.model_version }}</p>
+    </div>
+  }
+</div>
+
+<div class="grid grid-cols-2 gap-5">
+  <div>
+    <h2 class="section-title">Próximos partidos</h2>
+    @if (loading) {
+      <p class="text-center py-10" style="color:#94A3B8">Cargando…</p>
+    }
+    @if (error) {
+      <p class="text-center py-10" style="color:#EF4444">{{ error }}</p>
+    }
+    <div class="flex flex-col gap-3">
+      @for (m of matches; track m.id) {
+        <app-match-card [match]="m" />
+      }
+    </div>
+  </div>
+
+  <div>
+    <h2 class="section-title">Ranking ELO</h2>
+    <div class="card p-3 mb-4">
+      <table class="w-full text-sm">
+        <thead>
+          <tr class="text-xs uppercase tracking-wider border-b" style="color:#94A3B8; border-color:#1E3A5F;">
+            <th class="text-left p-2 font-semibold">#</th>
+            <th class="text-left p-2 font-semibold">Equipo</th>
+            <th class="p-2 font-semibold text-right">ELO</th>
+            <th class="p-2 w-24"></th>
+          </tr>
+        </thead>
+        <tbody>
+          @for (t of topTeams; track t.name; let i = $index) {
+            <tr class="border-b" style="border-color:rgba(30,58,95,0.5);">
+              <td class="p-2 font-mono text-xs" style="color:#94A3B8;">{{ i + 1 }}</td>
+              <td class="p-2">{{ t.name }}</td>
+              <td class="p-2 font-mono font-semibold text-right" style="color:#3B82F6;">
+                {{ t.elo.toFixed(0) }}
+              </td>
+              <td class="p-2">
+                <div class="h-1 rounded overflow-hidden" style="background:rgba(255,255,255,0.08);">
+                  <div class="h-full rounded" style="background:#3B82F6;"
+                       [style.width.%]="(t.elo / maxElo) * 100"></div>
+                </div>
+              </td>
+            </tr>
+          }
+        </tbody>
+      </table>
+    </div>
+
+    @if (meta) {
+      <div class="card p-4">
+        <span class="card-label">Estado del modelo</span>
+        <div class="flex flex-col gap-2 text-sm">
+          <div class="flex justify-between items-center">
+            <span style="color:#94A3B8;">Versión</span>
+            <span class="badge badge-win">v{{ meta.model_version }} · ACTIVO</span>
+          </div>
+          <div class="flex justify-between">
+            <span style="color:#94A3B8;">Dixon-Coles</span>
+            <span class="font-mono" style="color:#3B82F6;">
+              {{ (meta.ensemble_weights.dixon_coles * 100).toFixed(0) }}%
+            </span>
+          </div>
+          <div class="flex justify-between">
+            <span style="color:#94A3B8;">XGBoost</span>
+            <span class="font-mono" style="color:#3B82F6;">
+              {{ (meta.ensemble_weights.xgboost * 100).toFixed(0) }}%
+            </span>
+          </div>
+          <div class="flex justify-between">
+            <span style="color:#94A3B8;">ELO</span>
+            <span class="font-mono" style="color:#3B82F6;">
+              {{ (meta.ensemble_weights.elo * 100).toFixed(0) }}%
+            </span>
+          </div>
+        </div>
+      </div>
+    }
+  </div>
+</div>

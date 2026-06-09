@@ -1,0 +1,132 @@
+@if (loading) {
+  <p class="text-center py-16" style="color:#94A3B8;">Cargando…</p>
+}
+@if (error) {
+  <p class="text-center py-16" style="color:#EF4444;">{{ error }}</p>
+}
+
+@if (match) {
+  <div class="card flex items-center justify-between mb-5 p-6">
+    <div class="text-center flex-1">
+      <p class="font-bold text-xl">{{ match.home_team.name }}</p>
+      <p class="font-mono text-xs mt-1" style="color:#3B82F6;">
+        ELO {{ match.home_team.elo_rating.toFixed(0) }}
+      </p>
+    </div>
+
+    @if (match.prediction) {
+      <div class="text-center px-6">
+        <div class="flex gap-6 mb-2">
+          <div class="text-center">
+            <p class="font-mono text-2xl font-bold" style="color:#3B82F6;">
+              {{ (match.prediction.prob_home_win * 100).toFixed(0) }}%
+            </p>
+            <p class="text-xs mt-1" style="color:#94A3B8;">LOCAL</p>
+          </div>
+          <div class="text-center border-x px-4" style="border-color:#1E3A5F;">
+            <p class="font-mono text-2xl font-bold" style="color:#94A3B8;">
+              {{ (match.prediction.prob_draw * 100).toFixed(0) }}%
+            </p>
+            <p class="text-xs mt-1" style="color:#94A3B8;">EMPATE</p>
+          </div>
+          <div class="text-center">
+            <p class="font-mono text-2xl font-bold" style="color:#EF4444;">
+              {{ (match.prediction.prob_away_win * 100).toFixed(0) }}%
+            </p>
+            <p class="text-xs mt-1" style="color:#94A3B8;">VISITANTE</p>
+          </div>
+        </div>
+        <div class="flex h-1.5 rounded overflow-hidden gap-px w-40 mx-auto mt-2">
+          <div class="rounded-l" style="background:#3B82F6;"
+               [style.width.%]="match.prediction.prob_home_win * 100"></div>
+          <div style="background:#94A3B8;"
+               [style.width.%]="match.prediction.prob_draw * 100"></div>
+          <div class="rounded-r flex-1" style="background:#EF4444;"></div>
+        </div>
+        <p class="font-mono text-xs mt-2" style="color:#94A3B8;">
+          {{ match.kickoff_utc | date:'dd MMM yyyy · HH:mm' }} UTC · {{ match.venue_city }}
+        </p>
+      </div>
+    }
+
+    <div class="text-center flex-1">
+      <p class="font-bold text-xl">{{ match.away_team.name }}</p>
+      <p class="font-mono text-xs mt-1" style="color:#EF4444;">
+        ELO {{ match.away_team.elo_rating.toFixed(0) }}
+      </p>
+    </div>
+  </div>
+
+  @if (match.prediction && markets) {
+    <div class="grid grid-cols-2 gap-5">
+      <div>
+        <h2 class="section-title">Mercados de apuestas</h2>
+        <div class="grid grid-cols-3 gap-2 mb-4">
+          @for (item of [
+            {label:'Over 0.5', val: markets.over_05, t: 0.85},
+            {label:'Over 1.5', val: markets.over_15, t: 0.65},
+            {label:'Over 2.5', val: markets.over_25, t: 0.50},
+            {label:'Over 3.5', val: markets.over_35, t: 0.30},
+            {label:'BTTS',     val: markets.btts,    t: 0.50},
+            {label:'Confianza',val: match.prediction.model_confidence, t: 0.75}
+          ]; track item.label) {
+            <div class="market-item">
+              <span class="card-label">{{ item.label }}</span>
+              <p class="font-mono text-xl font-bold" [style.color]="marketColor(item.val, item.t)">
+                {{ (item.val * 100).toFixed(0) }}%
+              </p>
+            </div>
+          }
+        </div>
+
+        <div class="card p-4">
+          <span class="card-label">Goles esperados (Dixon-Coles)</span>
+          <div class="flex justify-around items-center">
+            <div class="text-center">
+              <p class="font-mono text-4xl font-bold" style="color:#3B82F6;">
+                {{ match.prediction.lambda_home.toFixed(2) }}
+              </p>
+              <p class="text-xs mt-1" style="color:#94A3B8;">λ {{ match.home_team.name }}</p>
+            </div>
+            <div class="w-px h-12" style="background:#1E3A5F;"></div>
+            <div class="text-center">
+              <p class="font-mono text-4xl font-bold" style="color:#EF4444;">
+                {{ match.prediction.lambda_away.toFixed(2) }}
+              </p>
+              <p class="text-xs mt-1" style="color:#94A3B8;">λ {{ match.away_team.name }}</p>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div>
+        <h2 class="section-title">Marcadores más probables</h2>
+        <div class="card p-3 mb-4">
+          <table class="w-full text-sm font-mono">
+            @for (s of topScores; track s.score; let i = $index) {
+              <tr class="border-b" style="border-color:rgba(30,58,95,0.4);">
+                <td class="p-2 text-xs" style="color:#94A3B8;">{{ i + 1 }}</td>
+                <td class="p-2 font-semibold">{{ s.score }}</td>
+                <td class="p-2" style="color:#F59E0B;">
+                  {{ (s.probability * 100).toFixed(1) }}%
+                </td>
+                <td class="p-2 w-24">
+                  <div class="h-1 rounded overflow-hidden" style="background:rgba(255,255,255,0.08);">
+                    <div class="h-full rounded"
+                         style="background:linear-gradient(90deg,#D97706,#F59E0B);"
+                         [style.width.%]="(s.probability / maxTopScore) * 100"></div>
+                  </div>
+                </td>
+              </tr>
+            }
+          </table>
+        </div>
+
+        <h2 class="section-title">Análisis multidimensional</h2>
+        <div class="card p-4">
+          <canvas #radarCanvas></canvas>
+        </div>
+      </div>
+    </div>
+  }
+}
