@@ -69,6 +69,33 @@ export interface BestBetsResponse {
   picks: BetPick[];
 }
 
+export interface SafeBet extends BetPick {
+  model_confidence: number;
+  safety_score: number;
+  exp_goals_home: number;
+  exp_goals_away: number;
+  exp_goals_total: number;
+  rationale: string;
+}
+
+export interface SafeBetsResponse {
+  n: number;
+  note: string;
+  picks: SafeBet[];
+}
+
+export interface OutrightPick {
+  team: string;
+  elo: number;
+  prob: number;
+  fair_odds: number;
+}
+
+export interface OutrightsResponse {
+  n: number;
+  markets: Record<string, OutrightPick[]>;
+}
+
 export interface MatchDetail extends Match {
   prediction: Prediction | null;
   bets: BetPick[];

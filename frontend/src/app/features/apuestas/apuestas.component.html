@@ -1,4 +1,21 @@
-<h2 class="section-title">Simulador de apuestas · parlay</h2>
+<div class="flex items-center justify-between flex-wrap gap-2">
+  <h2 class="section-title">Apuestas seguras · simulación Monte Carlo</h2>
+  <div class="flex items-center gap-2">
+    <button class="text-xs px-3 py-1.5 rounded font-semibold"
+            [style.background]="valueOnly ? '#22C55E' : 'transparent'"
+            [style.color]="valueOnly ? '#04140A' : '#22C55E'"
+            [style.border]="'1px solid #22C55E'" (click)="toggleValueOnly()">
+      {{ valueOnly ? '✓ Solo value' : 'Solo value (edge+)' }}
+    </button>
+    <button class="text-xs px-3 py-1.5 rounded font-semibold"
+            style="background:#3B82F6; color:#fff;" (click)="autoFill(3)">
+      ⚡ Auto-combinada (top 3)
+    </button>
+  </div>
+</div>
+@if (note) {
+  <p class="text-xs mb-3" style="color:#94A3B8;">{{ note }}</p>
+}
 
 <div class="grid grid-cols-3 gap-5">
   <!-- Available picks -->
@@ -17,7 +34,10 @@
               <th class="text-left p-2 font-semibold">Partido</th>
               <th class="text-left p-2 font-semibold">Apuesta</th>
               <th class="p-2 font-semibold text-right">Prob.</th>
+              <th class="p-2 font-semibold text-right">Seguridad</th>
+              <th class="p-2 font-semibold text-right">Valor</th>
               <th class="p-2 font-semibold text-right">Momio</th>
+              <th class="p-2 w-8"></th>
               <th class="p-2 w-10"></th>
             </tr>
           </thead>
@@ -29,11 +49,46 @@
                 <td class="p-2">{{ b.home_team }} <span style="color:#475569">vs</span> {{ b.away_team }}</td>
                 <td class="p-2 font-semibold">{{ b.label }}</td>
                 <td class="p-2 font-mono text-right" style="color:#22C55E;">{{ (b.model_prob * 100).toFixed(0) }}%</td>
+                <td class="p-2 text-right">
+                  <span class="text-xs font-mono px-1.5 py-0.5 rounded"
+                        [style.background]="b.safety_score >= 0.75 ? 'rgba(34,197,94,0.15)' : b.safety_score >= 0.6 ? 'rgba(245,158,11,0.15)' : 'rgba(148,163,184,0.12)'"
+                        [style.color]="b.safety_score >= 0.75 ? '#22C55E' : b.safety_score >= 0.6 ? '#F59E0B' : '#94A3B8'">
+                    {{ (b.safety_score * 100).toFixed(0) }}
+                  </span>
+                </td>
+                <td class="p-2 text-right">
+                  @if (b.source === 'market') {
+                    <span class="font-mono text-xs font-bold"
+                          [style.color]="b.edge > 0 ? '#22C55E' : '#EF4444'">
+                      {{ b.edge > 0 ? '+' : '' }}{{ (b.edge * 100).toFixed(0) }}%
+                    </span>
+                    <div class="text-xs" style="color:#64748B;">{{ b.bookmaker }}</div>
+                  } @else {
+                    <span class="text-xs" style="color:#475569;">justo</span>
+                  }
+                </td>
                 <td class="p-2 font-mono font-bold text-right" style="color:#F59E0B;">{{ b.decimal_odds.toFixed(2) }}</td>
+                <td class="p-2 text-center">
+                  <button class="text-xs font-bold w-5 h-5 rounded-full"
+                          [style.color]="isExpanded(b) ? '#3B82F6' : '#64748B'"
+                          [style.background]="isExpanded(b) ? 'rgba(59,130,246,0.15)' : 'transparent'"
+                          (click)="toggleExpand(b); $event.stopPropagation()"
+                          title="¿Por qué esta apuesta?">i</button>
+                </td>
                 <td class="p-2 text-center font-bold" [style.color]="inSlip(b) ? '#3B82F6' : '#475569'">
                   {{ inSlip(b) ? '✓' : '+' }}
                 </td>
               </tr>
+              @if (isExpanded(b)) {
+                <tr style="background:rgba(59,130,246,0.04);">
+                  <td colspan="8" class="px-3 pb-3 pt-1">
+                    <div class="text-xs leading-relaxed p-2 rounded"
+                         style="color:#CBD5E1; background:rgba(255,255,255,0.02); border-left:3px solid #3B82F6;">
+                      <span class="font-semibold" style="color:#93C5FD;">¿Por qué? </span>{{ b.rationale }}
+                    </div>
+                  </td>
+                </tr>
+              }
             }
           </tbody>
         </table>
@@ -118,4 +173,38 @@
       }
     </div>
   </div>
+</div>
+
+<!-- Tournament outrights: champion -->
+<div class="card p-4 mt-5">
+  <div class="flex items-center justify-between mb-3 px-1">
+    <span class="card-label">🏆 Campeón del Mundial — probabilidad simulada</span>
+    <span class="text-xs" style="color:#94A3B8;">Monte Carlo del bracket completo</span>
+  </div>
+  @if (loadingOutrights) {
+    <p class="text-center py-6 text-sm" style="color:#94A3B8;">Simulando torneo…</p>
+  } @else if (champions.length === 0) {
+    <p class="text-center py-6 text-sm" style="color:#94A3B8;">Sin datos suficientes del bracket.</p>
+  } @else {
+    <table class="w-full text-sm">
+      <thead>
+        <tr class="text-xs uppercase tracking-wider border-b" style="color:#94A3B8; border-color:#1E3A5F;">
+          <th class="text-left p-2 font-semibold">Selección</th>
+          <th class="p-2 font-semibold text-right">ELO</th>
+          <th class="p-2 font-semibold text-right">Prob. campeón</th>
+          <th class="p-2 font-semibold text-right">Momio justo</th>
+        </tr>
+      </thead>
+      <tbody>
+        @for (t of champions; track t.team) {
+          <tr class="border-b" style="border-color:rgba(30,58,95,0.5);">
+            <td class="p-2 font-semibold">{{ t.team }}</td>
+            <td class="p-2 font-mono text-right" style="color:#94A3B8;">{{ t.elo }}</td>
+            <td class="p-2 font-mono text-right" style="color:#22C55E;">{{ (t.prob * 100).toFixed(1) }}%</td>
+            <td class="p-2 font-mono font-bold text-right" style="color:#F59E0B;">{{ t.fair_odds.toFixed(2) }}</td>
+          </tr>
+        }
+      </tbody>
+    </table>
+  }
 </div>

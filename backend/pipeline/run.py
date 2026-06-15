@@ -19,8 +19,13 @@ from pipeline.ingestion.football_data import (
 from pipeline.ingestion.odds_api import fetch_odds, map_events_to_matches
 from pipeline.features.elo import compute_elo_ratings
 from pipeline.features.seed_ratings import seed_team_elos, strengths_from_elo
+from pipeline.features.calibration import (
+    updated_elos,
+    compute_goal_calibration,
+    team_base_lambdas,
+)
 from pipeline.models.dixon_coles import fit_dixon_coles, predict_match
-from pipeline.models.ensemble import blend_predictions, compute_confidence
+from pipeline.models.ensemble import blend_predictions, compute_confidence, elo_to_prob
 
 logging.basicConfig(level=logging.INFO)
 log = logging.getLogger(__name__)
@@ -88,7 +93,12 @@ def upsert_odds(db: Session):
     log.info(f"Upserted {len(rows)} odds rows")
 
 
-def run_predictions(db: Session, dc_params: dict, elo_ratings: dict):
+def run_predictions(db: Session, dc_params: dict, elo_ratings: dict,
+                    calibration: dict = None):
+    calibration = calibration or {"off_home": 0.0, "off_away": 0.0}
+    c_home = math.exp(calibration.get("off_home", 0.0))
+    c_away = math.exp(calibration.get("off_away", 0.0))
+
     upcoming = db.query(Match).filter(Match.played == False).all()
     for match in upcoming:
         home_team = db.query(Team).filter_by(id=match.home_team_id).first()
@@ -99,17 +109,14 @@ def run_predictions(db: Session, dc_params: dict, elo_ratings: dict):
         h_ext = home_team.external_id
         a_ext = away_team.external_id
 
-        # Fall back to ELO-derived strengths when the Dixon-Coles fit has no data
-        # for a team (e.g. no historical matches ingested).
-        h_str = strengths_from_elo(home_team.elo_rating)
-        a_str = strengths_from_elo(away_team.elo_rating)
-        h_att = dc_params["attack"].get(h_ext, h_str["attack"])
-        h_def = dc_params["defense"].get(h_ext, h_str["defense"])
-        a_att = dc_params["attack"].get(a_ext, a_str["attack"])
-        a_def = dc_params["defense"].get(a_ext, a_str["defense"])
-
-        lambda_home = math.exp(h_att - a_def + dc_params["home_advantage"])
-        lambda_away = math.exp(a_att - h_def)
+        # Base goal rates (fitted Dixon-Coles when available, else ELO strengths)
+        # then apply the recency goal-level calibration so the global scoring
+        # level tracks what teams are actually scoring this tournament.
+        lambda_home, lambda_away = team_base_lambdas(
+            home_team.elo_rating, away_team.elo_rating, dc_params, h_ext, a_ext
+        )
+        lambda_home *= c_home
+        lambda_away *= c_away
 
         dc_result = predict_match(lambda_home, lambda_away, rho=dc_params["rho"])
 
@@ -117,10 +124,15 @@ def run_predictions(db: Session, dc_params: dict, elo_ratings: dict):
             elo_ratings.get(h_ext, home_team.elo_rating)
             - elo_ratings.get(a_ext, away_team.elo_rating)
         )
+        # Second, genuinely independent model: an ELO-logistic 1x2 (vs the
+        # score-based Dixon-Coles). Their disagreement drives model_confidence,
+        # which previously collapsed to 1.0 because this slot just copied DC.
+        e_home = elo_to_prob(elo_diff)
+        draw_base = 0.24
         xgb_result = {
-            "prob_home_win": dc_result["prob_home_win"],
-            "prob_draw": dc_result["prob_draw"],
-            "prob_away_win": dc_result["prob_away_win"],
+            "prob_home_win": e_home * (1 - draw_base),
+            "prob_draw": draw_base,
+            "prob_away_win": (1 - e_home) * (1 - draw_base),
         }
         blended = blend_predictions(dc_result, xgb_result, elo_diff)
         confidence = compute_confidence(dc_result, xgb_result)
@@ -169,13 +181,27 @@ def run():
             n = seed_team_elos(db)
             log.info(f"No historical data — seeded {n} team ELO ratings")
 
-        elo_ratings = compute_elo_ratings(historical, {})
-
         dc_params = fit_dixon_coles(historical) if historical else {
             "attack": {}, "defense": {}, "home_advantage": 0.3, "rho": -0.1,
         }
 
-        run_predictions(db, dc_params, elo_ratings)
+        # Recency: re-rate teams from this tournament's real results, persist.
+        elo_ratings = updated_elos(db)
+        for t in db.query(Team).all():
+            if t.id in elo_ratings:
+                t.elo_rating = elo_ratings[t.id]
+        db.commit()
+
+        # Calibrate the global goal level against actual scorelines (kills the
+        # Under bias when the prior under-predicts goals).
+        calibration = compute_goal_calibration(db, dc_params)
+        log.info(
+            f"Goal calibration from {calibration['n']} played matches: "
+            f"home x{math.exp(calibration['off_home']):.3f}, "
+            f"away x{math.exp(calibration['off_away']):.3f}"
+        )
+
+        run_predictions(db, dc_params, elo_ratings, calibration)
         upsert_odds(db)
         log.info("Pipeline complete.")
     finally:
