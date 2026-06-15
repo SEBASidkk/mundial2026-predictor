@@ -14,6 +14,7 @@ import { RouterLink, RouterLinkActive } from '@angular/router';
       <div class="flex gap-1">
         <a routerLink="/" routerLinkActive="nav-active" [routerLinkActiveOptions]="{exact:true}"
            class="nav-link">Dashboard</a>
+        <a routerLink="/apuestas" routerLinkActive="nav-active" class="nav-link">Apuestas</a>
         <a routerLink="/torneo" routerLinkActive="nav-active" class="nav-link">Torneo</a>
         <a routerLink="/modelo" routerLinkActive="nav-active" class="nav-link">Modelo</a>
       </div>

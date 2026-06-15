@@ -1,4 +1,5 @@
-import httpx
+import time
+import requests
 from typing import List, Dict
 from app.config import settings
 
@@ -6,12 +7,35 @@ BASE_URL = "https://api.football-data.org/v4"
 
 
 def _headers() -> Dict:
-    return {"X-Auth-Token": settings.football_data_api_key}
+    # Connection: close avoids reused keep-alive sockets the server drops mid-request.
+    return {
+        "X-Auth-Token": settings.football_data_api_key,
+        "Connection": "close",
+    }
+
+
+def _get(url: str, timeout: int = 20, retries: int = 10) -> requests.Response:
+    """GET with retries — football-data.org intermittently drops connections."""
+    last = None
+    for attempt in range(retries):
+        try:
+            with requests.Session() as s:
+                resp = s.get(url, headers=_headers(), timeout=timeout)
+            if resp.status_code == 429:
+                time.sleep(min(60, 6 * (attempt + 1)))
+                continue
+            return resp
+        except requests.exceptions.RequestException as exc:
+            last = exc
+            time.sleep(min(30, 2 * (attempt + 1)))
+    if last:
+        raise last
+    return resp  # last response was 429 throughout
 
 
 def fetch_world_cup_teams() -> List[Dict]:
     url = f"{BASE_URL}/competitions/WC/teams"
-    resp = httpx.get(url, headers=_headers(), timeout=15)
+    resp = _get(url)
     resp.raise_for_status()
     return [
         {
@@ -26,7 +50,7 @@ def fetch_world_cup_teams() -> List[Dict]:
 
 def fetch_world_cup_matches() -> List[Dict]:
     url = f"{BASE_URL}/competitions/WC/matches"
-    resp = httpx.get(url, headers=_headers(), timeout=15)
+    resp = _get(url)
     resp.raise_for_status()
     matches = []
     for m in resp.json().get("matches", []):
@@ -53,7 +77,7 @@ def fetch_historical_matches(competition: str = "WC", seasons: List[int] = None)
     for season in seasons:
         url = f"{BASE_URL}/competitions/{competition}/matches?season={season}"
         try:
-            resp = httpx.get(url, headers=_headers(), timeout=15)
+            resp = _get(url)
         except Exception:
             continue
         if resp.status_code != 200:

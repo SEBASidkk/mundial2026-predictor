@@ -1,4 +1,4 @@
-import { Component, OnInit } from '@angular/core';
+import { Component, OnInit, ChangeDetectorRef } from '@angular/core';
 import { CommonModule, DatePipe } from '@angular/common';
 import { ApiService } from '../../core/services/api.service';
 import { ModelMeta } from '../../core/models/match.model';
@@ -39,10 +39,10 @@ export class ModeloComponent implements OnInit {
     'Handicap asiático ±0.5', 'Resultado al descanso (HT)',
   ];
 
-  constructor(private api: ApiService) {}
+  constructor(private api: ApiService, private cdr: ChangeDetectorRef) {}
 
   ngOnInit(): void {
-    this.api.getModelMeta().subscribe(m => (this.meta = m));
+    this.api.getModelMeta().subscribe(m => { this.meta = m; this.cdr.detectChanges(); });
   }
 
   weight(key: 'dixon_coles' | 'xgboost' | 'elo'): string {

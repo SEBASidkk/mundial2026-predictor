@@ -1,8 +1,8 @@
-import { Component, OnInit, ViewChild, ElementRef, AfterViewChecked } from '@angular/core';
+import { Component, OnInit, ViewChild, ElementRef, AfterViewChecked, ChangeDetectorRef } from '@angular/core';
 import { CommonModule, DatePipe } from '@angular/common';
 import { ActivatedRoute } from '@angular/router';
 import { ApiService } from '../../core/services/api.service';
-import { MatchDetail, Markets, ScoreEntry } from '../../core/models/match.model';
+import { MatchDetail, Markets, ScoreEntry, BetPick, SimResult } from '../../core/models/match.model';
 import {
   Chart, RadarController, RadialLinearScale,
   PointElement, LineElement, Filler, Tooltip, Legend,
@@ -22,10 +22,12 @@ export class PartidoComponent implements OnInit, AfterViewChecked {
   match: MatchDetail | null = null;
   loading = true;
   error: string | null = null;
+  sim: SimResult | null = null;
+  simulating = false;
   private chart: Chart | null = null;
   private chartDrawn = false;
 
-  constructor(private api: ApiService, private route: ActivatedRoute) {}
+  constructor(private api: ApiService, private route: ActivatedRoute, private cdr: ChangeDetectorRef) {}
 
   ngOnInit(): void {
     const id = Number(this.route.snapshot.paramMap.get('id'));
@@ -34,10 +36,20 @@ export class PartidoComponent implements OnInit, AfterViewChecked {
         this.match = m;
         this.loading = false;
         this.chartDrawn = false;
+        this.cdr.detectChanges();   // renders the canvas into the DOM
+        // Zoneless: ngAfterViewChecked is unreliable for async data. Defer one frame
+        // so the browser computes the container width before Chart.js sizes the canvas.
+        requestAnimationFrame(() => {
+          if (this.match?.prediction && this.radarCanvas && !this.chartDrawn) {
+            this.drawRadar();
+            this.chartDrawn = true;
+          }
+        });
       },
       error: () => {
         this.error = 'Partido no encontrado.';
         this.loading = false;
+        this.cdr.detectChanges();
       },
     });
   }
@@ -118,6 +130,22 @@ export class PartidoComponent implements OnInit, AfterViewChecked {
         },
       },
     });
+  }
+
+  get bets(): BetPick[] { return this.match?.bets ?? []; }
+
+  runSimulation(): void {
+    if (!this.match || this.simulating) return;
+    this.simulating = true;
+    this.cdr.detectChanges();
+    this.api.simulateMatch(this.match.id, 10000).subscribe({
+      next: (r) => { this.sim = r; this.simulating = false; this.cdr.detectChanges(); },
+      error: () => { this.simulating = false; this.cdr.detectChanges(); },
+    });
+  }
+
+  get maxGoalProb(): number {
+    return this.sim ? Math.max(...this.sim.goal_distribution.map(g => g.probability), 0.01) : 1;
   }
 
   get markets(): Markets | undefined { return this.match?.prediction?.markets; }

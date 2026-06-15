@@ -1,4 +1,6 @@
-from fastapi import APIRouter, Depends, HTTPException
+from __future__ import annotations
+
+from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.orm import Session, joinedload
 from typing import List
 from app.database import get_db
@@ -6,6 +8,9 @@ from app.models.match import Match
 from app.models.prediction import Prediction
 from app.schemas.match import MatchOut, MatchDetailOut
 from app.schemas.prediction import PredictionOut, MarketOut, ScoreEntry
+from app.schemas.bets import BetPickOut
+from app.services.bets import match_picks
+from app.services.simulate import simulate_match
 from pipeline.models.markets import compute_all_markets
 
 router = APIRouter()
@@ -90,6 +95,7 @@ def get_match(match_id: int, db: Session = Depends(get_db)):
     )
     if not match:
         raise HTTPException(status_code=404, detail="Match not found")
+    bets = [BetPickOut(**p) for p in match_picks(db, match)] if not match.played else []
     return MatchDetailOut(
         id=match.id,
         home_team=match.home_team,
@@ -102,4 +108,22 @@ def get_match(match_id: int, db: Session = Depends(get_db)):
         home_goals=match.home_goals,
         away_goals=match.away_goals,
         prediction=_build_prediction_out(match.prediction),
+        bets=bets,
     )
+
+
+@router.get("/match/{match_id}/simulate")
+def simulate(
+    match_id: int,
+    n: int = Query(10000, ge=100, le=100000),
+    db: Session = Depends(get_db),
+):
+    match = (
+        db.query(Match)
+        .options(joinedload(Match.home_team), joinedload(Match.away_team), joinedload(Match.prediction))
+        .filter(Match.id == match_id)
+        .first()
+    )
+    if not match:
+        raise HTTPException(status_code=404, detail="Match not found")
+    return simulate_match(match, n=n)

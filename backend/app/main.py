@@ -2,7 +2,8 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from app.config import settings
 from app.database import engine, Base
-from app.routers import matches, teams, standings, model_meta
+from app import models  # noqa: F401  (register all tables before create_all)
+from app.routers import matches, teams, standings, model_meta, bets, tournament
 
 Base.metadata.create_all(bind=engine)
 
@@ -20,6 +21,8 @@ app.include_router(matches.router, prefix="/api")
 app.include_router(teams.router, prefix="/api")
 app.include_router(standings.router, prefix="/api")
 app.include_router(model_meta.router, prefix="/api")
+app.include_router(bets.router, prefix="/api")
+app.include_router(tournament.router, prefix="/api")
 
 
 @app.get("/health")

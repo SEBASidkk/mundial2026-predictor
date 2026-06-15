@@ -1,7 +1,11 @@
+from __future__ import annotations
+
 from pydantic import BaseModel
 from datetime import datetime
+from typing import List
 from app.schemas.team import TeamOut
 from app.schemas.prediction import PredictionOut
+from app.schemas.bets import BetPickOut
 
 
 class MatchOut(BaseModel):
@@ -22,4 +26,4 @@ class MatchOut(BaseModel):
 
 
 class MatchDetailOut(MatchOut):
-    pass
+    bets: List[BetPickOut] = []

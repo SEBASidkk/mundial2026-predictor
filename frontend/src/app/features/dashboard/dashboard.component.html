@@ -25,6 +25,47 @@
   }
 </div>
 
+<div class="mb-5">
+  <h2 class="section-title">Mejores apuestas · más probables</h2>
+  <div class="card p-3">
+    @if (bestBets.length === 0) {
+      <p class="text-center py-6 text-sm" style="color:#94A3B8">Sin apuestas disponibles.</p>
+    } @else {
+      <table class="w-full text-sm">
+        <thead>
+          <tr class="text-xs uppercase tracking-wider border-b" style="color:#94A3B8; border-color:#1E3A5F;">
+            <th class="text-left p-2 font-semibold">Partido</th>
+            <th class="text-left p-2 font-semibold">Apuesta</th>
+            <th class="p-2 font-semibold text-right">Prob.</th>
+            <th class="p-2 font-semibold text-right">Momio</th>
+            <th class="p-2 font-semibold text-right">Implícita</th>
+            <th class="p-2 font-semibold text-center">Fuente</th>
+          </tr>
+        </thead>
+        <tbody>
+          @for (b of bestBets; track $index) {
+            <tr class="border-b hover:bg-white/5 cursor-pointer" style="border-color:rgba(30,58,95,0.5);"
+                [routerLink]="['/partido', b.match_id]">
+              <td class="p-2">{{ b.home_team }} <span style="color:#475569">vs</span> {{ b.away_team }}</td>
+              <td class="p-2 font-semibold">{{ b.label }}</td>
+              <td class="p-2 font-mono text-right" style="color:#22C55E;">{{ (b.model_prob * 100).toFixed(0) }}%</td>
+              <td class="p-2 font-mono font-bold text-right" style="color:#F59E0B;">{{ b.decimal_odds.toFixed(2) }}</td>
+              <td class="p-2 font-mono text-right" style="color:#94A3B8;">{{ (b.implied_prob * 100).toFixed(0) }}%</td>
+              <td class="p-2 text-center">
+                @if (b.source === 'market') {
+                  <span class="badge badge-win" title="{{ b.bookmaker }}">REAL</span>
+                } @else {
+                  <span class="badge" style="background:rgba(148,163,184,0.15); color:#94A3B8;">JUSTO</span>
+                }
+              </td>
+            </tr>
+          }
+        </tbody>
+      </table>
+    }
+  </div>
+</div>
+
 <div class="grid grid-cols-2 gap-5">
   <div>
     <h2 class="section-title">Próximos partidos</h2>

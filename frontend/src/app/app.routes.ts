@@ -12,6 +12,11 @@ export const routes: Routes = [
       import('./features/partido/partido.component').then(m => m.PartidoComponent),
   },
   {
+    path: 'apuestas',
+    loadComponent: () =>
+      import('./features/apuestas/apuestas.component').then(m => m.ApuestasComponent),
+  },
+  {
     path: 'torneo',
     loadComponent: () =>
       import('./features/torneo/torneo.component').then(m => m.TorneoComponent),

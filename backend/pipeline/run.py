@@ -10,12 +10,15 @@ from app.database import SessionLocal, engine, Base
 from app.models.team import Team
 from app.models.match import Match
 from app.models.prediction import Prediction
+from app.models.odds import Odds
 from pipeline.ingestion.football_data import (
     fetch_world_cup_teams,
     fetch_world_cup_matches,
     fetch_historical_matches,
 )
+from pipeline.ingestion.odds_api import fetch_odds, map_events_to_matches
 from pipeline.features.elo import compute_elo_ratings
+from pipeline.features.seed_ratings import seed_team_elos, strengths_from_elo
 from pipeline.models.dixon_coles import fit_dixon_coles, predict_match
 from pipeline.models.ensemble import blend_predictions, compute_confidence
 
@@ -68,6 +71,23 @@ def upsert_matches(db: Session, matches_data: list):
     log.info(f"Upserted {len(matches_data)} matches")
 
 
+def upsert_odds(db: Session):
+    """Fetch real odds and replace the Odds table. No-op (cleared) without a key."""
+    matches = (
+        db.query(Match)
+        .filter(Match.played == False)  # noqa: E712
+        .all()
+    )
+    events = fetch_odds()
+    rows = map_events_to_matches(events, matches) if events else []
+    # Fresh snapshot each run: clear and reinsert.
+    db.query(Odds).delete()
+    for r in rows:
+        db.add(Odds(**r))
+    db.commit()
+    log.info(f"Upserted {len(rows)} odds rows")
+
+
 def run_predictions(db: Session, dc_params: dict, elo_ratings: dict):
     upcoming = db.query(Match).filter(Match.played == False).all()
     for match in upcoming:
@@ -79,17 +99,24 @@ def run_predictions(db: Session, dc_params: dict, elo_ratings: dict):
         h_ext = home_team.external_id
         a_ext = away_team.external_id
 
-        h_att = dc_params["attack"].get(h_ext, 0.1)
-        h_def = dc_params["defense"].get(h_ext, 0.1)
-        a_att = dc_params["attack"].get(a_ext, 0.1)
-        a_def = dc_params["defense"].get(a_ext, 0.1)
+        # Fall back to ELO-derived strengths when the Dixon-Coles fit has no data
+        # for a team (e.g. no historical matches ingested).
+        h_str = strengths_from_elo(home_team.elo_rating)
+        a_str = strengths_from_elo(away_team.elo_rating)
+        h_att = dc_params["attack"].get(h_ext, h_str["attack"])
+        h_def = dc_params["defense"].get(h_ext, h_str["defense"])
+        a_att = dc_params["attack"].get(a_ext, a_str["attack"])
+        a_def = dc_params["defense"].get(a_ext, a_str["defense"])
 
         lambda_home = math.exp(h_att - a_def + dc_params["home_advantage"])
         lambda_away = math.exp(a_att - h_def)
 
         dc_result = predict_match(lambda_home, lambda_away, rho=dc_params["rho"])
 
-        elo_diff = elo_ratings.get(h_ext, 1500.0) - elo_ratings.get(a_ext, 1500.0)
+        elo_diff = (
+            elo_ratings.get(h_ext, home_team.elo_rating)
+            - elo_ratings.get(a_ext, away_team.elo_rating)
+        )
         xgb_result = {
             "prob_home_win": dc_result["prob_home_win"],
             "prob_draw": dc_result["prob_draw"],
@@ -136,6 +163,12 @@ def run():
 
         historical = fetch_historical_matches(seasons=[2018, 2022])
 
+        # No historical results from the free API tier → seed approximate ELOs so
+        # teams (and therefore predictions) are differentiated instead of uniform.
+        if not historical:
+            n = seed_team_elos(db)
+            log.info(f"No historical data — seeded {n} team ELO ratings")
+
         elo_ratings = compute_elo_ratings(historical, {})
 
         dc_params = fit_dixon_coles(historical) if historical else {
@@ -143,6 +176,7 @@ def run():
         }
 
         run_predictions(db, dc_params, elo_ratings)
+        upsert_odds(db)
         log.info("Pipeline complete.")
     finally:
         db.close()

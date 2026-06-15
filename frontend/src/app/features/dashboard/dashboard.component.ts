@@ -1,18 +1,20 @@
 import { Component, OnInit, ChangeDetectorRef } from '@angular/core';
 import { CommonModule, DatePipe } from '@angular/common';
+import { RouterLink } from '@angular/router';
 import { ApiService } from '../../core/services/api.service';
 import { MatchCardComponent } from '../../shared/components/match-card/match-card.component';
-import { Match, ModelMeta } from '../../core/models/match.model';
+import { Match, ModelMeta, BetPick } from '../../core/models/match.model';
 
 @Component({
   selector: 'app-dashboard',
   standalone: true,
-  imports: [CommonModule, DatePipe, MatchCardComponent],
+  imports: [CommonModule, DatePipe, MatchCardComponent, RouterLink],
   templateUrl: './dashboard.component.html',
 })
 export class DashboardComponent implements OnInit {
   matches: Match[] = [];
   meta: ModelMeta | null = null;
+  bestBets: BetPick[] = [];
   loading = true;
   error: string | null = null;
 
@@ -38,6 +40,13 @@ export class DashboardComponent implements OnInit {
         this.cdr.detectChanges();
       },
       error: (e) => console.error('[Dashboard] getModelMeta error:', e),
+    });
+    this.api.getBestBets(12).subscribe({
+      next: (r) => {
+        this.bestBets = r.picks;
+        this.cdr.detectChanges();
+      },
+      error: (e) => console.error('[Dashboard] getBestBets error:', e),
     });
   }
 

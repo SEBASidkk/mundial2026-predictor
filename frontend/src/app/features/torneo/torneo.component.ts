@@ -1,4 +1,4 @@
-import { Component, OnInit } from '@angular/core';
+import { Component, OnInit, ChangeDetectorRef } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { ApiService } from '../../core/services/api.service';
 import { Standing } from '../../core/models/match.model';
@@ -13,12 +13,12 @@ export class TorneoComponent implements OnInit {
   standings: Standing[] = [];
   loading = true;
 
-  constructor(private api: ApiService) {}
+  constructor(private api: ApiService, private cdr: ChangeDetectorRef) {}
 
   ngOnInit(): void {
     this.api.getStandings().subscribe({
-      next: (r) => { this.standings = r.standings; this.loading = false; },
-      error: () => { this.loading = false; },
+      next: (r) => { this.standings = r.standings; this.loading = false; this.cdr.detectChanges(); },
+      error: () => { this.loading = false; this.cdr.detectChanges(); },
     });
   }
 

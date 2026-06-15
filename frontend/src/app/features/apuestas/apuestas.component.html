@@ -1,0 +1,121 @@
+<h2 class="section-title">Simulador de apuestas · parlay</h2>
+
+<div class="grid grid-cols-3 gap-5">
+  <!-- Available picks -->
+  <div class="col-span-2">
+    <div class="card p-3">
+      <div class="flex items-center justify-between mb-2 px-1">
+        <span class="card-label">Picks disponibles (toca para agregar)</span>
+        <span class="text-xs" style="color:#94A3B8;">{{ available.length }} opciones</span>
+      </div>
+      @if (loading) {
+        <p class="text-center py-8 text-sm" style="color:#94A3B8;">Cargando…</p>
+      } @else {
+        <table class="w-full text-sm">
+          <thead>
+            <tr class="text-xs uppercase tracking-wider border-b" style="color:#94A3B8; border-color:#1E3A5F;">
+              <th class="text-left p-2 font-semibold">Partido</th>
+              <th class="text-left p-2 font-semibold">Apuesta</th>
+              <th class="p-2 font-semibold text-right">Prob.</th>
+              <th class="p-2 font-semibold text-right">Momio</th>
+              <th class="p-2 w-10"></th>
+            </tr>
+          </thead>
+          <tbody>
+            @for (b of available; track key(b)) {
+              <tr class="border-b cursor-pointer" style="border-color:rgba(30,58,95,0.5);"
+                  [style.background]="inSlip(b) ? 'rgba(59,130,246,0.10)' : 'transparent'"
+                  (click)="toggle(b)">
+                <td class="p-2">{{ b.home_team }} <span style="color:#475569">vs</span> {{ b.away_team }}</td>
+                <td class="p-2 font-semibold">{{ b.label }}</td>
+                <td class="p-2 font-mono text-right" style="color:#22C55E;">{{ (b.model_prob * 100).toFixed(0) }}%</td>
+                <td class="p-2 font-mono font-bold text-right" style="color:#F59E0B;">{{ b.decimal_odds.toFixed(2) }}</td>
+                <td class="p-2 text-center font-bold" [style.color]="inSlip(b) ? '#3B82F6' : '#475569'">
+                  {{ inSlip(b) ? '✓' : '+' }}
+                </td>
+              </tr>
+            }
+          </tbody>
+        </table>
+      }
+    </div>
+  </div>
+
+  <!-- Bet slip -->
+  <div>
+    <div class="card p-4" style="position:sticky; top:1rem;">
+      <div class="flex items-center justify-between mb-3">
+        <span class="card-label">Boleto</span>
+        @if (summary.count > 0) {
+          <button class="text-xs" style="color:#EF4444;" (click)="clear()">Limpiar</button>
+        }
+      </div>
+
+      @if (summary.count === 0) {
+        <p class="text-sm py-6 text-center" style="color:#94A3B8;">
+          Agrega picks de la izquierda para armar tu parlay.
+        </p>
+      } @else {
+        <div class="flex flex-col gap-2 mb-4">
+          @for (b of slip.getPicks(); track key(b)) {
+            <div class="flex items-start justify-between gap-2 p-2 rounded" style="background:rgba(255,255,255,0.03);">
+              <div class="flex-1">
+                <p class="text-sm font-semibold">{{ b.label }}</p>
+                <p class="text-xs" style="color:#94A3B8;">{{ b.home_team }} vs {{ b.away_team }}</p>
+              </div>
+              <div class="text-right">
+                <p class="font-mono text-sm font-bold" style="color:#F59E0B;">{{ b.decimal_odds.toFixed(2) }}</p>
+                <button class="text-xs" style="color:#EF4444;" (click)="remove(b); $event.stopPropagation()">quitar</button>
+              </div>
+            </div>
+          }
+        </div>
+
+        <div class="mb-3">
+          <label class="card-label">Stake (apuesta)</label>
+          <input type="number" min="0" [value]="slip.stake" (input)="onStake($any($event.target).value)"
+                 class="w-full mt-1 px-3 py-2 rounded font-mono text-lg"
+                 style="background:#0A1322; border:1px solid #1E3A5F; color:#F8FAFC;" />
+        </div>
+
+        <div class="flex flex-col gap-2 text-sm border-t pt-3" style="border-color:#1E3A5F;">
+          <div class="flex justify-between">
+            <span style="color:#94A3B8;">Selecciones</span>
+            <span class="font-mono">{{ summary.count }}</span>
+          </div>
+          <div class="flex justify-between">
+            <span style="color:#94A3B8;">Momio combinado</span>
+            <span class="font-mono font-bold" style="color:#F59E0B;">{{ summary.combinedOdds.toFixed(2) }}</span>
+          </div>
+          <div class="flex justify-between">
+            <span style="color:#94A3B8;">Prob. modelo (que pase todo)</span>
+            <span class="font-mono" style="color:#22C55E;">{{ (summary.combinedProb * 100).toFixed(1) }}%</span>
+          </div>
+          <div class="flex justify-between">
+            <span style="color:#94A3B8;">Prob. implícita</span>
+            <span class="font-mono" style="color:#94A3B8;">{{ (summary.impliedProb * 100).toFixed(1) }}%</span>
+          </div>
+          <div class="flex justify-between items-center border-t pt-2 mt-1" style="border-color:#1E3A5F;">
+            <span style="color:#94A3B8;">Pago potencial</span>
+            <span class="font-mono text-xl font-bold" style="color:#3B82F6;">{{ summary.payout.toFixed(2) }}</span>
+          </div>
+          <div class="flex justify-between">
+            <span style="color:#94A3B8;">Ganancia neta</span>
+            <span class="font-mono font-semibold" style="color:#22C55E;">+{{ summary.profit.toFixed(2) }}</span>
+          </div>
+          <div class="flex justify-between">
+            <span style="color:#94A3B8;">Valor esperado (EV)</span>
+            <span class="font-mono font-semibold" [style.color]="summary.expectedValue >= 0 ? '#22C55E' : '#EF4444'">
+              {{ summary.expectedValue >= 0 ? '+' : '' }}{{ summary.expectedValue.toFixed(2) }}
+            </span>
+          </div>
+        </div>
+
+        <p class="text-xs mt-3" style="color:#475569;">
+          Parlay = todas deben acertar. La prob. combinada asume independencia entre partidos.
+          EV positivo sugiere apuesta de valor según el modelo.
+        </p>
+      }
+    </div>
+  </div>
+</div>

@@ -49,8 +49,45 @@ export interface Match {
   prediction?: Prediction | null;
 }
 
+export interface BetPick {
+  match_id: number;
+  home_team: string;
+  away_team: string;
+  kickoff_utc: string;
+  market: string;
+  selection: string;
+  label: string;
+  model_prob: number;
+  decimal_odds: number;
+  implied_prob: number;
+  edge: number;
+  source: 'market' | 'fair';
+  bookmaker: string | null;
+}
+
+export interface BestBetsResponse {
+  picks: BetPick[];
+}
+
 export interface MatchDetail extends Match {
   prediction: Prediction | null;
+  bets: BetPick[];
+}
+
+export interface SimResult {
+  n: number;
+  available: boolean;
+  home_team: string;
+  away_team: string;
+  lambda_home: number;
+  lambda_away: number;
+  result: { home: number; draw: number; away: number };
+  avg_goals_home: number;
+  avg_goals_away: number;
+  over_25: number;
+  btts: number;
+  top_scores: ScoreEntry[];
+  goal_distribution: { goals: string; probability: number }[];
 }
 
 export interface ModelMeta {
