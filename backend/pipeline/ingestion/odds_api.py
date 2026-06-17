@@ -9,8 +9,9 @@ because real odds are unavailable.
 import time
 import logging
 import unicodedata
+from difflib import SequenceMatcher
 from datetime import datetime
-from typing import Dict, List
+from typing import Dict, List, Optional
 
 import requests
 
@@ -21,12 +22,49 @@ log = logging.getLogger(__name__)
 BASE_URL = "https://api.the-odds-api.com/v4"
 SPORT_KEY = "soccer_fifa_world_cup"
 
+# Canonical name aliases — bookmakers and the fixtures API disagree on national
+# team names. Keys/values are normalised on use, so write them naturally.
+TEAM_ALIASES: Dict[str, str] = {
+    "usa": "united states",
+    "us": "united states",
+    "united states of america": "united states",
+    "korea republic": "south korea",
+    "republic of korea": "south korea",
+    "korea dpr": "north korea",
+    "ir iran": "iran",
+    "iran islamic republic": "iran",
+    "czechia": "czech republic",
+    "turkiye": "turkey",
+    "cote divoire": "ivory coast",
+    "china pr": "china",
+    "bosnia herzegovina": "bosnia and herzegovina",
+    "cabo verde": "cape verde",
+    "drc": "dr congo",
+    "congo dr": "dr congo",
+}
+
+# Minimum similarity for a fuzzy name match before we give up and skip.
+_FUZZY_THRESHOLD = 0.84
+
 
 def _norm(name: str) -> str:
-    """Normalize a team name for matching: lowercase, strip accents/punctuation."""
+    """Normalize a team name for matching: lowercase, strip accents/punctuation,
+    then collapse through the alias table."""
     s = unicodedata.normalize("NFKD", name or "")
     s = "".join(c for c in s if not unicodedata.combining(c))
-    return "".join(c for c in s.lower() if c.isalnum())
+    cleaned = "".join(c for c in s.lower() if c.isalnum() or c == " ").strip()
+    aliased = TEAM_ALIASES.get(cleaned, cleaned)
+    return aliased.replace(" ", "")
+
+
+def _best_fuzzy(target: str, candidates: List[str]) -> Optional[str]:
+    """Closest candidate name to `target` above the similarity threshold."""
+    best, best_score = None, 0.0
+    for c in candidates:
+        score = SequenceMatcher(None, target, c).ratio()
+        if score > best_score:
+            best, best_score = c, score
+    return best if best_score >= _FUZZY_THRESHOLD else None
 
 
 def _get(url: str, params: Dict, retries: int = 5) -> requests.Response:
@@ -123,16 +161,29 @@ def map_events_to_matches(events: List[Dict], matches) -> List[Dict]:
     by_teams: Dict = {}
     for m in matches:
         by_teams[(_norm(m.home_team.name), _norm(m.away_team.name))] = m
+    all_team_norms = sorted({n for pair in by_teams for n in pair})
 
     out: List[Dict] = []
     matched = 0
+    unmatched: List[str] = []
     for ev in events:
         h, a = ev.get("home_team", ""), ev.get("away_team", "")
-        m = by_teams.get((_norm(h), _norm(a)))
+        hn, an = _norm(h), _norm(a)
+        m = by_teams.get((hn, an))
         if m is None:
+            # Fuzzy fallback: tolerate spelling drift the alias table missed.
+            hf = _best_fuzzy(hn, all_team_norms)
+            af = _best_fuzzy(an, all_team_norms)
+            if hf and af:
+                m = by_teams.get((hf, af))
+        if m is None:
+            unmatched.append(f"{h} vs {a}")
             continue
         matched += 1
         for row in normalize_event_odds(ev, h, a):
             out.append({"match_id": m.id, **row})
     log.info(f"Odds API: matched {matched}/{len(events)} events to DB matches, {len(out)} odds rows")
+    if unmatched:
+        log.warning("Odds API: %d events unmatched (review aliases): %s",
+                    len(unmatched), "; ".join(unmatched[:10]))
     return out

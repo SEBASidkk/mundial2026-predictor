@@ -4,7 +4,7 @@ Usage: python -m pipeline.run
 """
 import math
 import logging
-from datetime import datetime
+from datetime import datetime, timezone
 from sqlalchemy.orm import Session
 from app.database import SessionLocal, engine, Base
 from app.models.team import Team
@@ -25,7 +25,14 @@ from pipeline.features.calibration import (
     team_base_lambdas,
 )
 from pipeline.models.dixon_coles import fit_dixon_coles, predict_match
-from pipeline.models.ensemble import blend_predictions, compute_confidence, elo_to_prob
+from pipeline.models.ensemble import (
+    blend_predictions,
+    compute_confidence,
+    elo_to_prob,
+    fit_ensemble_weights,
+    save_weights,
+    DEFAULT_WEIGHTS,
+)
 
 logging.basicConfig(level=logging.INFO)
 log = logging.getLogger(__name__)
@@ -93,9 +100,43 @@ def upsert_odds(db: Session):
     log.info(f"Upserted {len(rows)} odds rows")
 
 
+def build_weight_samples(db: Session, dc_params: dict, calibration: dict):
+    """(dc_probs, xgb_probs, elo_diff, outcome) tuples from played matches,
+    used to learn the ensemble weights."""
+    c_home = math.exp(calibration.get("off_home", 0.0))
+    c_away = math.exp(calibration.get("off_away", 0.0))
+    teams = {t.id: t for t in db.query(Team).all()}
+    samples = []
+    from pipeline.features.calibration import played_matches, team_base_lambdas
+    for m in played_matches(db):
+        h = teams.get(m["home_id"])
+        a = teams.get(m["away_id"])
+        if h is None or a is None:
+            continue
+        lam_h, lam_a = team_base_lambdas(
+            h.elo_rating, a.elo_rating, dc_params, h.external_id, a.external_id
+        )
+        lam_h *= c_home
+        lam_a *= c_away
+        dc = predict_match(lam_h, lam_a, rho=dc_params.get("rho", -0.1))
+        elo_diff = h.elo_rating - a.elo_rating
+        e_home = elo_to_prob(elo_diff)
+        draw_base = 0.24
+        xgb = {
+            "prob_home_win": e_home * (1 - draw_base),
+            "prob_draw": draw_base,
+            "prob_away_win": (1 - e_home) * (1 - draw_base),
+        }
+        hg, ag = m["home_goals"], m["away_goals"]
+        outcome = 0 if hg > ag else (1 if hg == ag else 2)
+        samples.append((dc, xgb, elo_diff, outcome))
+    return samples
+
+
 def run_predictions(db: Session, dc_params: dict, elo_ratings: dict,
-                    calibration: dict = None):
+                    calibration: dict = None, weights=None):
     calibration = calibration or {"off_home": 0.0, "off_away": 0.0}
+    weights = weights or DEFAULT_WEIGHTS
     c_home = math.exp(calibration.get("off_home", 0.0))
     c_away = math.exp(calibration.get("off_away", 0.0))
 
@@ -134,8 +175,8 @@ def run_predictions(db: Session, dc_params: dict, elo_ratings: dict,
             "prob_draw": draw_base,
             "prob_away_win": (1 - e_home) * (1 - draw_base),
         }
-        blended = blend_predictions(dc_result, xgb_result, elo_diff)
-        confidence = compute_confidence(dc_result, xgb_result)
+        blended = blend_predictions(dc_result, xgb_result, elo_diff, weights)
+        confidence = compute_confidence(dc_result, xgb_result, blended)
 
         existing_pred = db.query(Prediction).filter_by(match_id=match.id).first()
         if existing_pred:
@@ -146,7 +187,7 @@ def run_predictions(db: Session, dc_params: dict, elo_ratings: dict,
             existing_pred.lambda_away = lambda_away
             existing_pred.score_matrix = dc_result["score_matrix"]
             existing_pred.model_confidence = confidence
-            existing_pred.generated_at = datetime.utcnow()
+            existing_pred.generated_at = datetime.now(timezone.utc)
         else:
             db.add(Prediction(
                 match_id=match.id,
@@ -201,7 +242,16 @@ def run():
             f"away x{math.exp(calibration['off_away']):.3f}"
         )
 
-        run_predictions(db, dc_params, elo_ratings, calibration)
+        # Learn ensemble weights from played matches (default until enough data).
+        samples = build_weight_samples(db, dc_params, calibration)
+        weights = fit_ensemble_weights(samples)
+        save_weights(weights)
+        log.info(
+            "Ensemble weights (DC/XGB/ELO) from %d samples: %.3f / %.3f / %.3f",
+            len(samples), *weights,
+        )
+
+        run_predictions(db, dc_params, elo_ratings, calibration, weights)
         upsert_odds(db)
         log.info("Pipeline complete.")
     finally:

@@ -1,7 +1,7 @@
 from sqlalchemy import Column, Integer, Float, DateTime, ForeignKey, JSON
 from sqlalchemy.orm import relationship
 from app.database import Base
-from datetime import datetime
+from datetime import datetime, timezone
 
 
 class Prediction(Base):
@@ -10,7 +10,7 @@ class Prediction(Base):
     id = Column(Integer, primary_key=True)
     match_id = Column(Integer, ForeignKey("matches.id"), unique=True)
     model_version = Column(Integer, default=1)
-    generated_at = Column(DateTime, default=datetime.utcnow)
+    generated_at = Column(DateTime, default=lambda: datetime.now(timezone.utc))
     prob_home_win = Column(Float)
     prob_draw = Column(Float)
     prob_away_win = Column(Float)

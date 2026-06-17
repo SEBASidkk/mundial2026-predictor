@@ -11,9 +11,16 @@ from app.schemas.bets import (
     SafeBetsOut,
     ParlayOut,
     OutrightsOut,
+    MatchBestBet,
+    MatchBestBetsOut,
 )
 from app.services.bets import best_bets
-from app.services.safe_bets import safe_bets, build_parlay, outright_bets
+from app.services.safe_bets import (
+    safe_bets,
+    build_parlay,
+    outright_bets,
+    best_bet_per_match,
+)
 
 router = APIRouter()
 
@@ -45,6 +52,31 @@ def get_safe_bets(
         n=n,
         note=_SAFE_NOTE,
         picks=[SafeBetOut(**p) for p in picks],
+    )
+
+
+@router.get("/bets/by-match", response_model=MatchBestBetsOut)
+def get_best_bet_per_match(
+    n: int = Query(8000, ge=1000, le=100000),
+    db: Session = Depends(get_db),
+):
+    """Date-ordered fixtures, each with its single strongest pick + rationale."""
+    rows = best_bet_per_match(db, n=n)
+    return MatchBestBetsOut(
+        n=n,
+        note=_SAFE_NOTE,
+        matches=[
+            MatchBestBet(
+                match_id=r["match_id"],
+                home_team=r["home_team"],
+                away_team=r["away_team"],
+                kickoff_utc=r["kickoff_utc"],
+                stage=r["stage"],
+                group=r["group"],
+                best_pick=SafeBetOut(**r["best_pick"]),
+            )
+            for r in rows
+        ],
     )
 
 

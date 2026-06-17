@@ -72,6 +72,9 @@ export interface BestBetsResponse {
 export interface SafeBet extends BetPick {
   model_confidence: number;
   safety_score: number;
+  prob_ci_low: number;
+  prob_ci_high: number;
+  kelly_fraction: number;
   exp_goals_home: number;
   exp_goals_away: number;
   exp_goals_total: number;
@@ -82,6 +85,22 @@ export interface SafeBetsResponse {
   n: number;
   note: string;
   picks: SafeBet[];
+}
+
+export interface MatchBestBet {
+  match_id: number;
+  home_team: string;
+  away_team: string;
+  kickoff_utc: string;
+  stage: string | null;
+  group: string | null;
+  best_pick: SafeBet;
+}
+
+export interface MatchBestBetsResponse {
+  n: number;
+  note: string;
+  matches: MatchBestBet[];
 }
 
 export interface OutrightPick {
@@ -122,7 +141,39 @@ export interface ModelMeta {
   predictions_count: number;
   model_version: number;
   ensemble_weights: { dixon_coles: number; xgboost: number; elo: number };
+  weights_source?: string;
   methodology: string;
+}
+
+export interface RefreshStatus {
+  status?: string;            // "started" | "already_running" (POST only)
+  running: boolean;
+  last_run: string | null;
+  last_error: string | null;
+  started_at: string | null;
+}
+
+export interface ReliabilityBin {
+  bin: string;
+  avg_predicted: number;
+  observed_freq: number;
+  count: number;
+}
+
+export interface ModelMetrics {
+  n: number;
+  brier: number | null;
+  log_loss: number | null;
+  accuracy: number | null;
+  baseline_brier: number | null;
+  roi: number | null;
+  value_bets: number;
+  reliability: ReliabilityBin[];
+  calibration: {
+    goal_offset_home: number;
+    goal_offset_away: number;
+    calibrated_from: number;
+  };
 }
 
 export interface StandingsResponse {

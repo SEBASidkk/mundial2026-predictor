@@ -1,7 +1,7 @@
 import { Component, OnInit, ChangeDetectorRef } from '@angular/core';
 import { CommonModule, DatePipe } from '@angular/common';
 import { ApiService } from '../../core/services/api.service';
-import { ModelMeta } from '../../core/models/match.model';
+import { ModelMeta, ModelMetrics } from '../../core/models/match.model';
 
 @Component({
   selector: 'app-modelo',
@@ -11,6 +11,7 @@ import { ModelMeta } from '../../core/models/match.model';
 })
 export class ModeloComponent implements OnInit {
   meta: ModelMeta | null = null;
+  metrics: ModelMetrics | null = null;
 
   readonly models = [
     {
@@ -43,10 +44,29 @@ export class ModeloComponent implements OnInit {
 
   ngOnInit(): void {
     this.api.getModelMeta().subscribe(m => { this.meta = m; this.cdr.detectChanges(); });
+    this.api.getModelMetrics().subscribe({
+      next: m => { this.metrics = m; this.cdr.detectChanges(); },
+      error: () => {},
+    });
   }
 
   weight(key: 'dixon_coles' | 'xgboost' | 'elo'): string {
     if (!this.meta) return '—';
     return (this.meta.ensemble_weights[key] * 100).toFixed(0) + '%';
+  }
+
+  /** Dynamic ensemble formula reflecting the learned weights. */
+  get formula(): string {
+    if (!this.meta) return '—';
+    const w = this.meta.ensemble_weights;
+    return `P_final = ${w.dixon_coles.toFixed(2)} × Dixon-Coles + ` +
+           `${w.xgboost.toFixed(2)} × XGBoost + ${w.elo.toFixed(2)} × ELO`;
+  }
+
+  /** How much better the model's Brier is vs an uninformed uniform guess. */
+  get brierEdge(): string {
+    if (!this.metrics?.brier || !this.metrics?.baseline_brier) return '—';
+    const pct = (1 - this.metrics.brier / this.metrics.baseline_brier) * 100;
+    return (pct >= 0 ? '+' : '') + pct.toFixed(0) + '%';
   }
 }

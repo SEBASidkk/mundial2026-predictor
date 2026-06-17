@@ -1,4 +1,4 @@
-import { Component, OnInit, ChangeDetectorRef } from '@angular/core';
+import { Component, OnInit, OnDestroy, ChangeDetectorRef } from '@angular/core';
 import { CommonModule, DatePipe } from '@angular/common';
 import { RouterLink } from '@angular/router';
 import { ApiService } from '../../core/services/api.service';
@@ -11,16 +11,23 @@ import { Match, ModelMeta, BetPick } from '../../core/models/match.model';
   imports: [CommonModule, DatePipe, MatchCardComponent, RouterLink],
   templateUrl: './dashboard.component.html',
 })
-export class DashboardComponent implements OnInit {
+export class DashboardComponent implements OnInit, OnDestroy {
   matches: Match[] = [];
   meta: ModelMeta | null = null;
   bestBets: BetPick[] = [];
   loading = true;
   error: string | null = null;
+  refreshing = false;
+  refreshError: string | null = null;
+  private pollTimer: ReturnType<typeof setInterval> | null = null;
 
   constructor(private api: ApiService, private cdr: ChangeDetectorRef) {}
 
   ngOnInit(): void {
+    this.loadAll();
+  }
+
+  private loadAll(): void {
     this.api.getMatches().subscribe({
       next: (m) => {
         this.matches = m.filter(x => !x.played).slice(0, 6);
@@ -49,6 +56,42 @@ export class DashboardComponent implements OnInit {
       error: (e) => console.error('[Dashboard] getBestBets error:', e),
     });
   }
+
+  /** Manually re-run the pipeline (pull latest results/odds), then reload. */
+  refresh(): void {
+    if (this.refreshing) return;
+    this.refreshing = true;
+    this.refreshError = null;
+    this.cdr.detectChanges();
+    this.api.triggerRefresh().subscribe({
+      next: () => this.pollUntilDone(),
+      error: () => { this.refreshing = false; this.refreshError = 'No se pudo iniciar la actualización.'; this.cdr.detectChanges(); },
+    });
+  }
+
+  private pollUntilDone(): void {
+    this.clearPoll();
+    this.pollTimer = setInterval(() => {
+      this.api.getRefreshStatus().subscribe({
+        next: (s) => {
+          if (!s.running) {
+            this.clearPoll();
+            this.refreshing = false;
+            this.refreshError = s.last_error ? `Falló: ${s.last_error}` : null;
+            this.loadAll();
+            this.cdr.detectChanges();
+          }
+        },
+        error: () => { this.clearPoll(); this.refreshing = false; this.cdr.detectChanges(); },
+      });
+    }, 2000);
+  }
+
+  private clearPoll(): void {
+    if (this.pollTimer) { clearInterval(this.pollTimer); this.pollTimer = null; }
+  }
+
+  ngOnDestroy(): void { this.clearPoll(); }
 
   get topTeams(): { name: string; elo: number }[] {
     const map = new Map<number, { name: string; elo: number }>();

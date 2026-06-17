@@ -1,7 +1,7 @@
 from sqlalchemy import Column, Integer, String, Float, DateTime, ForeignKey, Boolean
 from sqlalchemy.orm import relationship
 from app.database import Base
-from datetime import datetime
+from datetime import datetime, timezone
 
 
 class Player(Base):
@@ -19,6 +19,6 @@ class Player(Base):
     assists_last_5 = Column(Integer, default=0)
     injured = Column(Boolean, default=False)
     suspended = Column(Boolean, default=False)
-    updated_at = Column(DateTime, default=datetime.utcnow)
+    updated_at = Column(DateTime, default=lambda: datetime.now(timezone.utc))
 
     team = relationship("Team", back_populates="players")

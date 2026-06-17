@@ -1,19 +1,27 @@
 import { Component, OnInit, ChangeDetectorRef } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
+import { RouterLink } from '@angular/router';
 import { ApiService } from '../../core/services/api.service';
 import { BetSlipService, SlipSummary, pickKey } from '../../core/services/bet-slip.service';
-import { BetPick, SafeBet, OutrightPick } from '../../core/models/match.model';
+import { BetPick, SafeBet, OutrightPick, MatchBestBet } from '../../core/models/match.model';
+
+interface MatchDayGroup {
+  date: string;             // ISO date (yyyy-MM-dd) for the DatePipe
+  matches: MatchBestBet[];
+}
 
 @Component({
   selector: 'app-apuestas',
   standalone: true,
-  imports: [CommonModule, FormsModule],
+  imports: [CommonModule, FormsModule, RouterLink],
   templateUrl: './apuestas.component.html',
 })
 export class ApuestasComponent implements OnInit {
   available: SafeBet[] = [];
   champions: OutrightPick[] = [];
+  byMatchGroups: MatchDayGroup[] = [];
+  loadingByMatch = true;
   note = '';
   loading = true;
   loadingOutrights = true;
@@ -35,6 +43,7 @@ export class ApuestasComponent implements OnInit {
       this.cdr.detectChanges();
     });
     this.loadSafeBets();
+    this.loadByMatch();
     // Tournament outrights — champion probabilities from full-bracket sims.
     this.api.getOutrights(3000, 8).subscribe({
       next: (r) => {
@@ -59,6 +68,31 @@ export class ApuestasComponent implements OnInit {
       },
       error: () => { this.loading = false; this.cdr.detectChanges(); },
     });
+  }
+
+  // Best pick for every fixture, chronological, grouped by match day.
+  loadByMatch(): void {
+    this.loadingByMatch = true;
+    this.cdr.detectChanges();
+    this.api.getBestBetPerMatch(8000).subscribe({
+      next: (r) => {
+        this.byMatchGroups = this.groupByDay(r.matches);
+        this.loadingByMatch = false;
+        this.cdr.detectChanges();
+      },
+      error: () => { this.loadingByMatch = false; this.cdr.detectChanges(); },
+    });
+  }
+
+  private groupByDay(matches: MatchBestBet[]): MatchDayGroup[] {
+    const groups = new Map<string, MatchBestBet[]>();
+    for (const m of matches) {
+      const day = m.kickoff_utc.slice(0, 10); // yyyy-MM-dd
+      (groups.get(day) ?? groups.set(day, []).get(day)!).push(m);
+    }
+    return [...groups.entries()]
+      .sort(([a], [b]) => a.localeCompare(b))
+      .map(([date, ms]) => ({ date, matches: ms }));
   }
 
   toggleValueOnly(): void {

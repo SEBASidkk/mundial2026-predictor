@@ -1,0 +1,6 @@
+[run]
+omit =
+    # Integration entrypoints: exercised by running the app/pipeline, not units.
+    pipeline/run.py
+    pipeline/ingestion/football_data.py
+    scheduler.py

@@ -93,6 +93,36 @@ def simulate_markets(
     }
 
 
+def credible_interval(prob: float, n: int, z: float = 1.96) -> Tuple[float, float]:
+    """95% credible interval for a Monte Carlo probability estimate.
+
+    Normal approximation to the binomial proportion: with n simulations the
+    sampling error is z*sqrt(p(1-p)/n). Wide interval ⇒ the estimate itself is
+    uncertain (rare event or too few sims), narrow ⇒ trustworthy.
+    """
+    if n <= 0:
+        return (prob, prob)
+    se = (prob * (1.0 - prob) / n) ** 0.5
+    return (round(max(0.0, prob - z * se), 5), round(min(1.0, prob + z * se), 5))
+
+
+def kelly_fraction(prob: float, decimal_odds: float, cap: float = 0.10,
+                   fraction: float = 0.25) -> float:
+    """Fractional Kelly stake (share of bankroll) for a value bet.
+
+    Full Kelly = (b*p - (1-p)) / b with b = decimal_odds - 1. We return a
+    fraction of it (default quarter-Kelly) for safety and cap the result, so a
+    single edge can't suggest betting the farm. Non-positive edge ⇒ 0 stake.
+    """
+    b = decimal_odds - 1.0
+    if b <= 0:
+        return 0.0
+    full = (b * prob - (1.0 - prob)) / b
+    if full <= 0:
+        return 0.0
+    return round(min(cap, full * fraction), 4)
+
+
 def safety_score(model_prob: float, edge: float, confidence: float) -> float:
     """Composite ranking score (not a probability).
 
@@ -158,6 +188,13 @@ def build_rationale(p: Dict) -> str:
 
     conf = p.get("model_confidence", 0.0)
     parts.append(f"Acuerdo entre los modelos: {_confidence_word(conf)} ({conf:.2f}).")
+
+    lo, hi = p.get("prob_ci_low"), p.get("prob_ci_high")
+    if lo is not None and hi is not None:
+        parts.append(f"Intervalo de confianza 95%: {round(lo * 100)}%–{round(hi * 100)}%.")
+    kelly = p.get("kelly_fraction", 0.0)
+    if kelly and kelly > 0:
+        parts.append(f"Stake sugerido (Kelly fraccional): {round(kelly * 100, 1)}% del bankroll.")
     return " ".join(parts)
 
 
@@ -199,6 +236,7 @@ def simulated_match_picks(
             bookmaker = None
         implied = round(1.0 / decimal_odds, 5) if decimal_odds > 0 else 0.0
         edge = round(prob - implied, 5)
+        ci_low, ci_high = credible_interval(prob, n)
         pick = {
             "match_id": match.id,
             "home_team": home,
@@ -208,9 +246,12 @@ def simulated_match_picks(
             "selection": selection,
             "label": _pick_label(market, selection, home, away),
             "model_prob": prob,
+            "prob_ci_low": ci_low,
+            "prob_ci_high": ci_high,
             "decimal_odds": decimal_odds,
             "implied_prob": implied,
             "edge": edge,
+            "kelly_fraction": kelly_fraction(prob, decimal_odds),
             "source": source,
             "bookmaker": bookmaker,
             "model_confidence": round(confidence, 4),
@@ -281,6 +322,53 @@ def safe_bets(
         all_picks, limit=limit,
         max_per_market=max_per_market, max_per_match=per_match,
     )
+
+
+def best_bet_per_match(
+    db: Session,
+    n: int = 8000,
+    upcoming_only: bool = True,
+) -> List[Dict]:
+    """One best pick for every match, returned in chronological order.
+
+    Each match contributes its single strongest selection (by safety score),
+    so the caller gets a date-ordered fixture list where every game carries its
+    own data-backed recommendation — not a cross-match leaderboard. The band is
+    relaxed (every fixture yields a pick) but trivial near-locks are still
+    skipped so the suggestion is informative.
+    """
+    q = (
+        db.query(Match)
+        .options(
+            joinedload(Match.home_team),
+            joinedload(Match.away_team),
+            joinedload(Match.prediction),
+        )
+    )
+    if upcoming_only:
+        q = q.filter(Match.played == False)  # noqa: E712
+    matches = q.order_by(Match.kickoff_utc.asc()).all()
+
+    idx = _odds_index(db, [m.id for m in matches])
+    rng = np.random.default_rng()
+
+    out: List[Dict] = []
+    for m in matches:
+        picks = simulated_match_picks(m, idx, n=n, rng=rng, apply_band=False)
+        picks = [p for p in picks if p["market"] not in TRIVIAL_MARKETS]
+        if not picks:
+            continue
+        best = picks[0]
+        out.append({
+            "match_id": m.id,
+            "home_team": m.home_team.name,
+            "away_team": m.away_team.name,
+            "kickoff_utc": m.kickoff_utc.isoformat(),
+            "stage": m.stage,
+            "group": m.group,
+            "best_pick": best,
+        })
+    return out
 
 
 def diversify_by_market(

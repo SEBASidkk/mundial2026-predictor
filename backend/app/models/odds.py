@@ -1,7 +1,7 @@
 from sqlalchemy import Column, Integer, String, Float, DateTime, ForeignKey
 from sqlalchemy.orm import relationship
 from app.database import Base
-from datetime import datetime
+from datetime import datetime, timezone
 
 
 class Odds(Base):
@@ -18,6 +18,6 @@ class Odds(Base):
     selection = Column(String, nullable=False)   # e.g. "home", "draw", "away", "yes", "over"
     decimal_odds = Column(Float, nullable=False)
     bookmaker = Column(String)
-    updated_at = Column(DateTime, default=datetime.utcnow)
+    updated_at = Column(DateTime, default=lambda: datetime.now(timezone.utc))
 
     match = relationship("Match")

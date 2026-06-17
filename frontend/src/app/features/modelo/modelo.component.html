@@ -21,8 +21,13 @@
       }
       <div class="mt-4 pt-4 border-t text-center font-mono text-xs"
            style="border-color:#1E3A5F; color:#94A3B8;">
-        P_final = 0.40 × Dixon-Coles + 0.35 × XGBoost + 0.25 × ELO
+        {{ formula }}
       </div>
+      @if (meta?.weights_source) {
+        <p class="text-center text-xs mt-2" style="color:#475569;">
+          pesos: {{ meta?.weights_source }}
+        </p>
+      }
     </div>
 
     <div class="card p-4">
@@ -45,6 +50,59 @@
         }
       </div>
     </div>
+
+    @if (metrics && metrics.n > 0) {
+      <div class="card p-4 mb-4">
+        <div class="flex items-center justify-between mb-3">
+          <span class="card-label">Backtest · {{ metrics.n }} partidos jugados</span>
+          <span class="badge badge-win">validado con datos reales</span>
+        </div>
+        <div class="grid grid-cols-3 gap-2 mb-3 text-center">
+          <div class="p-2 rounded" style="background:rgba(255,255,255,0.03);">
+            <p class="text-xs" style="color:#64748B;">Brier</p>
+            <p class="font-mono font-bold text-lg" style="color:#3B82F6;">{{ metrics.brier?.toFixed(3) }}</p>
+            <p class="text-xs" style="color:#22C55E;">{{ brierEdge }} vs azar</p>
+          </div>
+          <div class="p-2 rounded" style="background:rgba(255,255,255,0.03);">
+            <p class="text-xs" style="color:#64748B;">Log-loss</p>
+            <p class="font-mono font-bold text-lg" style="color:#F59E0B;">{{ metrics.log_loss?.toFixed(3) }}</p>
+          </div>
+          <div class="p-2 rounded" style="background:rgba(255,255,255,0.03);">
+            <p class="text-xs" style="color:#64748B;">Aciertos 1X2</p>
+            <p class="font-mono font-bold text-lg" style="color:#22C55E;">{{ ((metrics.accuracy ?? 0) * 100).toFixed(0) }}%</p>
+          </div>
+        </div>
+
+        @if (metrics.roi !== null) {
+          <div class="flex justify-between text-sm mb-3">
+            <span style="color:#94A3B8;">ROI value bets ({{ metrics.value_bets }})</span>
+            <span class="font-mono font-bold" [style.color]="metrics.roi >= 0 ? '#22C55E' : '#EF4444'">
+              {{ metrics.roi >= 0 ? '+' : '' }}{{ (metrics.roi * 100).toFixed(1) }}%
+            </span>
+          </div>
+        }
+
+        <span class="card-label">Curva de calibración (pred. vs real)</span>
+        <div class="flex flex-col gap-1 mt-2">
+          @for (b of metrics.reliability; track b.bin) {
+            <div class="flex items-center gap-2 text-xs">
+              <span class="font-mono w-16" style="color:#94A3B8;">{{ b.bin }}</span>
+              <div class="flex-1 h-3 rounded overflow-hidden relative" style="background:rgba(255,255,255,0.06);">
+                <div class="h-full" style="background:#3B82F6; opacity:0.5;"
+                     [style.width.%]="b.avg_predicted * 100"></div>
+                <div class="h-full absolute top-0" style="background:#22C55E;"
+                     [style.width.%]="b.observed_freq * 100" [style.opacity]="0.6"></div>
+              </div>
+              <span class="font-mono w-10 text-right" style="color:#64748B;">n={{ b.count }}</span>
+            </div>
+          }
+          <div class="flex gap-3 text-xs mt-1" style="color:#64748B;">
+            <span><span style="color:#3B82F6;">▬</span> predicho</span>
+            <span><span style="color:#22C55E;">▬</span> observado</span>
+          </div>
+        </div>
+      </div>
+    }
 
     @if (meta) {
       <div class="card p-4">

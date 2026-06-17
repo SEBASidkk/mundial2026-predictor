@@ -1,3 +1,26 @@
+<div class="flex items-center justify-between mb-4">
+  <h1 class="text-xl font-bold">Panel</h1>
+  <div class="flex items-center gap-3">
+    @if (meta?.last_updated) {
+      <span class="text-xs" style="color:#94A3B8;">
+        Datos al {{ meta?.last_updated | date:'dd MMM · HH:mm' }}
+      </span>
+    }
+    <button class="text-xs px-3 py-1.5 rounded font-semibold flex items-center gap-1.5"
+            [disabled]="refreshing"
+            [style.background]="refreshing ? 'rgba(59,130,246,0.15)' : '#3B82F6'"
+            [style.color]="refreshing ? '#93C5FD' : '#fff'"
+            [style.cursor]="refreshing ? 'wait' : 'pointer'"
+            (click)="refresh()">
+      <span [style.display]="'inline-block'" [class.animate-spin]="refreshing">↻</span>
+      {{ refreshing ? 'Actualizando…' : 'Actualizar partidos' }}
+    </button>
+  </div>
+</div>
+@if (refreshError) {
+  <p class="text-xs mb-3" style="color:#EF4444;">{{ refreshError }}</p>
+}
+
 <div class="grid grid-cols-4 gap-4 mb-5">
   <div class="card">
     <span class="card-label">Partidos totales</span>

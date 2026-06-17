@@ -6,11 +6,14 @@ import {
   Match,
   MatchDetail,
   ModelMeta,
+  ModelMetrics,
   StandingsResponse,
   BestBetsResponse,
   SafeBetsResponse,
+  MatchBestBetsResponse,
   OutrightsResponse,
   SimResult,
+  RefreshStatus,
 } from '../models/match.model';
 
 @Injectable({ providedIn: 'root' })
@@ -35,6 +38,16 @@ export class ApiService {
     return this.http.get<ModelMeta>(`${this.base}/api/model/meta`);
   }
 
+  getModelMetrics(): Observable<ModelMetrics> {
+    return this.http.get<ModelMetrics>(`${this.base}/api/model/metrics`);
+  }
+
+  getBestBetPerMatch(n = 8000): Observable<MatchBestBetsResponse> {
+    return this.http.get<MatchBestBetsResponse>(
+      `${this.base}/api/bets/by-match?n=${n}`,
+    );
+  }
+
   getBestBets(limit = 12): Observable<BestBetsResponse> {
     return this.http.get<BestBetsResponse>(`${this.base}/api/bets/best?limit=${limit}`);
   }
@@ -53,5 +66,13 @@ export class ApiService {
 
   simulateMatch(id: number, n = 10000): Observable<SimResult> {
     return this.http.get<SimResult>(`${this.base}/api/match/${id}/simulate?n=${n}`);
+  }
+
+  triggerRefresh(): Observable<RefreshStatus> {
+    return this.http.post<RefreshStatus>(`${this.base}/api/refresh`, {});
+  }
+
+  getRefreshStatus(): Observable<RefreshStatus> {
+    return this.http.get<RefreshStatus>(`${this.base}/api/refresh/status`);
   }
 }
