@@ -154,17 +154,31 @@ def build_rationale(p: Dict) -> str:
     goal expectancy, etc.), the value vs the real bookmaker odd, and how much
     the underlying models agree (confidence).
     """
+    from pipeline.features.seed_ratings import HOST_TEAMS
+
     prob_pct = round(p["model_prob"] * 100)
     market, sel = p["market"], p["selection"]
     total = p.get("exp_goals_total")
+    eh, ea = p.get("exp_goals_home"), p.get("exp_goals_away")
+    home_is_host = p["home_team"] in HOST_TEAMS
+    away_is_host = p["away_team"] in HOST_TEAMS
+    venue = (
+        f"{p['home_team']} juega en casa (sede 2026)" if home_is_host
+        else (f"{p['away_team']} juega en casa (sede 2026)" if away_is_host
+              else "sede neutral (ningún equipo es local)")
+    )
     parts: List[str] = [f"El modelo le da {prob_pct}% de acierto (Monte Carlo, miles de simulaciones)."]
 
     if market == "1x2" and sel == "home":
-        parts.append(f"{p['home_team']} llega como favorito por fuerza (ELO + forma reciente) y juega en casa.")
+        parts.append(
+            f"{p['home_team']} es favorito: goles esperados {eh} a {ea}. {venue.capitalize()}."
+        )
     elif market == "1x2" and sel == "away":
-        parts.append(f"{p['away_team']} es superior según el modelo aun jugando fuera.")
+        parts.append(
+            f"{p['away_team']} es superior según el modelo (goles esperados {ea} a {eh}); {venue}."
+        )
     elif market == "1x2" and sel == "draw":
-        parts.append("Equipos parejos: el empate concentra probabilidad.")
+        parts.append(f"Equipos parejos (goles esperados {eh}–{ea}): el empate concentra probabilidad.")
     elif market.startswith("over"):
         parts.append(f"Partido de perfil ofensivo: ~{total} goles esperados entre ambos.")
     elif market.startswith("under"):

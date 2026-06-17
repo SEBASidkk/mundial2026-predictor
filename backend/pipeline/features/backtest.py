@@ -48,10 +48,14 @@ def _reconstruct_prediction(
     weights: Tuple[float, float, float],
 ) -> Dict[str, float]:
     """1x2 probabilities for a fixture via the live ensemble path."""
+    from pipeline.features.seed_ratings import host_advantages
+
     c_home = math.exp(calibration.get("off_home", 0.0))
     c_away = math.exp(calibration.get("off_away", 0.0))
+    hadv, aadv = host_advantages(home.name, away.name)
     lam_h, lam_a = team_base_lambdas(
-        home.elo_rating, away.elo_rating, dc_params, home.external_id, away.external_id
+        home.elo_rating, away.elo_rating, dc_params, home.external_id, away.external_id,
+        home_adv=hadv, away_adv=aadv,
     )
     lam_h *= c_home
     lam_a *= c_away

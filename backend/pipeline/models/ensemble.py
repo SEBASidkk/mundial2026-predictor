@@ -111,11 +111,16 @@ def _logloss(samples: List[Tuple[Dict, Dict, float, int]],
 def fit_ensemble_weights(
     samples: List[Tuple[Dict, Dict, float, int]],
     min_samples: int = 12,
+    prior_strength: float = 20.0,
 ) -> Tuple[float, float, float]:
     """Learn simplex weights minimising log-loss; default when data is thin.
 
     Uses scipy SLSQP over the 2-simplex when available, else a coarse grid
-    search — both constrained so weights are non-negative and sum to 1.
+    search — both constrained so weights are non-negative and sum to 1. The
+    fitted weights are then shrunk toward the defaults with weight
+    n / (n + prior_strength): with few matches a degenerate corner solution
+    (e.g. all weight on one model) is pulled back toward a sensible blend, and
+    the data only fully takes over once there are many results.
     """
     if len(samples) < min_samples:
         log.info("Only %d labelled matches (<%d) — keeping default ensemble weights.",
@@ -155,7 +160,17 @@ def fit_ensemble_weights(
 
     # Renormalise against tiny float drift.
     s = sum(best) or 1.0
-    return (best[0] / s, best[1] / s, best[2] / s)
+    best = (best[0] / s, best[1] / s, best[2] / s)
+
+    # Shrink toward the defaults so a small sample can't collapse onto one model.
+    n = len(samples)
+    w_data = n / (n + prior_strength)
+    blended = tuple(
+        w_data * b + (1.0 - w_data) * d
+        for b, d in zip(best, DEFAULT_WEIGHTS)
+    )
+    bs = sum(blended) or 1.0
+    return (blended[0] / bs, blended[1] / bs, blended[2] / bs)
 
 
 def save_weights(weights: Tuple[float, float, float]) -> None:

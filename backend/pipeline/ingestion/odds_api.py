@@ -38,7 +38,8 @@ TEAM_ALIASES: Dict[str, str] = {
     "cote divoire": "ivory coast",
     "china pr": "china",
     "bosnia herzegovina": "bosnia and herzegovina",
-    "cabo verde": "cape verde",
+    "cabo verde": "cape verde islands",
+    "cape verde": "cape verde islands",
     "drc": "dr congo",
     "congo dr": "dr congo",
 }

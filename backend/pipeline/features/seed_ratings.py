@@ -33,6 +33,28 @@ SEED_ELO: Dict[str, float] = {
 
 DEFAULT_ELO = 1700.0
 
+# The 2026 World Cup is played in the USA, Canada and Mexico. Every match is on
+# North-American soil, so the only *real* home advantage belongs to these three
+# hosts when they play — for everyone else the "home" team is just the fixture
+# listing at a neutral venue and gets no edge. (Applying a blanket home
+# advantage to the nominal home side wrongly favoured weaker teams, e.g. it made
+# Uzbekistan a near-coin-flip vs Colombia.)
+HOST_TEAMS = {"Mexico", "United States", "Canada"}
+# Host scoring edge in log space: exp(0.18) ≈ +20% expected goals at home.
+HOST_EDGE = 0.18
+
+
+def host_advantages(home_name: str, away_name: str) -> tuple[float, float]:
+    """(home_adv, away_adv) goal-rate log-offsets from host status.
+
+    A host gets HOST_EDGE whether listed home or away (they're physically at
+    home); neutral fixtures get nothing.
+    """
+    return (
+        HOST_EDGE if home_name in HOST_TEAMS else 0.0,
+        HOST_EDGE if away_name in HOST_TEAMS else 0.0,
+    )
+
 
 def seed_team_elos(db: Session) -> int:
     """Set each team's elo_rating from SEED_ELO (fallback DEFAULT_ELO). Returns count."""
@@ -43,12 +65,15 @@ def seed_team_elos(db: Session) -> int:
     return len(teams)
 
 
-def strengths_from_elo(elo: float, k: float = 0.45) -> Dict[str, float]:
+def strengths_from_elo(elo: float, k: float = 0.72) -> Dict[str, float]:
     """Derive Dixon-Coles attack/defense offsets from an ELO rating.
 
     s = (elo - 1500) / 400 maps ratings to roughly [-0.35, +1.5]. Stronger teams
     attack more (higher att) and concede less (higher def, which is subtracted
-    from the opponent's goal rate).
+    from the opponent's goal rate). k sets how strongly ELO separates teams; at
+    k=0.72 a 200-ELO gap (e.g. Colombia 1880 vs Uzbekistan 1680) is worth ~0.36
+    in log goal-rate, enough to make the rating favourite a clear favourite
+    instead of a coin-flip.
     """
     s = (elo - 1500.0) / 400.0
     return {"attack": 0.10 + k * s, "defense": 0.10 + k * s}

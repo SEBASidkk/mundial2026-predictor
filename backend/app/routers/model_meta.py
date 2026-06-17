@@ -28,9 +28,12 @@ def get_model_meta(db: Session = Depends(get_db)):
         },
         "weights_source": "learned (log-loss min on played matches)",
         "methodology": (
-            "Dixon-Coles (1997) + ELO-logistic + XGBoost slot, weights learned by "
-            "log-loss minimisation. Bivariate Poisson for exact scores. Recency "
-            "ELO re-rating + goal-level calibration to remove the Under bias."
+            "Dixon-Coles (1997) + ELO-logistic, weights learned by log-loss "
+            "minimisation. Bivariate Poisson for exact scores. Goal rates scale "
+            "with ELO (k=0.72); home edge applies only to the 2026 hosts "
+            "(MX/USA/CAN) since every match is at a neutral North-American venue. "
+            "Recency ELO re-rating + a single global goal-level calibration "
+            "(no home/away asymmetry) keep the scoring level honest."
         ),
     }
 

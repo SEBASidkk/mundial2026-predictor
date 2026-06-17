@@ -18,7 +18,7 @@ from pipeline.ingestion.football_data import (
 )
 from pipeline.ingestion.odds_api import fetch_odds, map_events_to_matches
 from pipeline.features.elo import compute_elo_ratings
-from pipeline.features.seed_ratings import seed_team_elos, strengths_from_elo
+from pipeline.features.seed_ratings import seed_team_elos, strengths_from_elo, host_advantages
 from pipeline.features.calibration import (
     updated_elos,
     compute_goal_calibration,
@@ -113,8 +113,10 @@ def build_weight_samples(db: Session, dc_params: dict, calibration: dict):
         a = teams.get(m["away_id"])
         if h is None or a is None:
             continue
+        hadv, aadv = host_advantages(h.name, a.name)
         lam_h, lam_a = team_base_lambdas(
-            h.elo_rating, a.elo_rating, dc_params, h.external_id, a.external_id
+            h.elo_rating, a.elo_rating, dc_params, h.external_id, a.external_id,
+            home_adv=hadv, away_adv=aadv,
         )
         lam_h *= c_home
         lam_a *= c_away
@@ -151,10 +153,12 @@ def run_predictions(db: Session, dc_params: dict, elo_ratings: dict,
         a_ext = away_team.external_id
 
         # Base goal rates (fitted Dixon-Coles when available, else ELO strengths)
-        # then apply the recency goal-level calibration so the global scoring
-        # level tracks what teams are actually scoring this tournament.
+        # with a host-only home edge (neutral venues get none), then the recency
+        # goal-level calibration so the global scoring level tracks reality.
+        hadv, aadv = host_advantages(home_team.name, away_team.name)
         lambda_home, lambda_away = team_base_lambdas(
-            home_team.elo_rating, away_team.elo_rating, dc_params, h_ext, a_ext
+            home_team.elo_rating, away_team.elo_rating, dc_params, h_ext, a_ext,
+            home_adv=hadv, away_adv=aadv,
         )
         lambda_home *= c_home
         lambda_away *= c_away
