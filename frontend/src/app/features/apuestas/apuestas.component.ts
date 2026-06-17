@@ -19,16 +19,16 @@ interface MatchDayGroup {
   templateUrl: './apuestas.component.html',
 })
 export class ApuestasComponent implements OnInit {
-  available: SafeBet[] = [];
   champions: OutrightPick[] = [];
   byMatchGroups: MatchDayGroup[] = [];
   loadingByMatch = true;
-  note = '';
-  loading = true;
   loadingOutrights = true;
-  valueOnly = false;
-  expanded: string | null = null;
+  note = '';
+  autoFillNote: string | null = null;
   summary: SlipSummary;
+
+  flag = flagEmoji;
+  readonly mxTz = MX_TZ;
 
   constructor(
     private api: ApiService,
@@ -43,9 +43,7 @@ export class ApuestasComponent implements OnInit {
       this.summary = this.slip.summary();
       this.cdr.detectChanges();
     });
-    this.loadSafeBets();
     this.loadByMatch();
-    // Tournament outrights — champion probabilities from full-bracket sims.
     this.api.getOutrights(3000, 8).subscribe({
       next: (r) => {
         this.champions = r.markets['champion'] ?? [];
@@ -56,27 +54,13 @@ export class ApuestasComponent implements OnInit {
     });
   }
 
-  // Simulation-backed safest bets (Monte Carlo per match + value edge).
-  loadSafeBets(): void {
-    this.loading = true;
-    this.cdr.detectChanges();
-    this.api.getSafeBets(40, 8000, 2, this.valueOnly).subscribe({
-      next: (r) => {
-        this.available = r.picks;
-        this.note = r.note;
-        this.loading = false;
-        this.cdr.detectChanges();
-      },
-      error: () => { this.loading = false; this.cdr.detectChanges(); },
-    });
-  }
-
-  // Best pick for every fixture, chronological, grouped by match day.
+  // Top picks for every fixture, chronological, grouped by match day.
   loadByMatch(): void {
     this.loadingByMatch = true;
     this.cdr.detectChanges();
     this.api.getBestBetPerMatch(8000).subscribe({
       next: (r) => {
+        this.note = r.note;
         this.byMatchGroups = this.groupByDay(r.matches);
         this.loadingByMatch = false;
         this.cdr.detectChanges();
@@ -96,38 +80,44 @@ export class ApuestasComponent implements OnInit {
       .map(([date, ms]) => ({ date, matches: ms }));
   }
 
-  toggleValueOnly(): void {
-    this.valueOnly = !this.valueOnly;
-    this.loadSafeBets();
+  /** Every pick across every fixture, flattened. */
+  private allPicks(): SafeBet[] {
+    return this.byMatchGroups.flatMap(g => g.matches.flatMap(m => m.picks));
   }
 
-  toggleExpand(p: SafeBet): void {
-    const k = pickKey(p);
-    this.expanded = this.expanded === k ? null : k;
+  /**
+   * Build a parlay of the safest legs: keep only likely picks (prob ≥ 0.55),
+   * one per match, then rank by probability first and decimal odds second so
+   * the slip favours hits while still grabbing the better-priced of equals.
+   * Falls back to lower probabilities if there aren't enough strong legs.
+   */
+  autoFill(minLegs = 5): void {
+    const ranked = (threshold: number) =>
+      this.allPicks()
+        .filter(p => p.model_prob >= threshold)
+        .sort((a, b) => (b.model_prob - a.model_prob) || (b.decimal_odds - a.decimal_odds));
+
+    let pool = ranked(0.55);
+    if (pool.length < minLegs) pool = ranked(0.0);
+
+    this.slip.clear();
+    const seen = new Set<number>();
+    for (const p of pool) {
+      if (seen.has(p.match_id)) continue;
+      seen.add(p.match_id);
+      this.slip.add(p);
+      if (seen.size >= minLegs) break;
+    }
+    this.autoFillNote = seen.size
+      ? `Combinada de ${seen.size} apuestas: las más probables con mejor momio.`
+      : 'No hay apuestas disponibles para combinar.';
   }
-
-  isExpanded(p: SafeBet): boolean { return this.expanded === pickKey(p); }
-
-  flag = flagEmoji;
-  readonly mxTz = MX_TZ;
 
   key = pickKey;
   inSlip(p: BetPick): boolean { return this.slip.has(p); }
   toggle(p: BetPick): void { this.slip.toggle(p); }
   remove(p: BetPick): void { this.slip.remove(p); }
-  clear(): void { this.slip.clear(); }
-
-  /** Fill the slip with the N safest picks from distinct matches. */
-  autoFill(legs = 3): void {
-    this.slip.clear();
-    const seen = new Set<number>();
-    for (const p of this.available) {
-      if (seen.has(p.match_id)) continue;
-      seen.add(p.match_id);
-      this.slip.add(p);
-      if (seen.size >= legs) break;
-    }
-  }
+  clear(): void { this.slip.clear(); this.autoFillNote = null; }
 
   onStake(value: string): void {
     this.slip.setStake(Number(value));

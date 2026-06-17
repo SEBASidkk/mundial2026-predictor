@@ -1,250 +1,149 @@
-<div class="flex items-center justify-between flex-wrap gap-2">
-  <h2 class="section-title">Apuestas seguras · simulación Monte Carlo</h2>
-  <div class="flex items-center gap-2">
-    <button class="text-xs px-3 py-1.5 rounded font-semibold"
-            [style.background]="valueOnly ? '#22C55E' : 'transparent'"
-            [style.color]="valueOnly ? '#04140A' : '#22C55E'"
-            [style.border]="'1px solid #22C55E'" (click)="toggleValueOnly()">
-      {{ valueOnly ? '✓ Solo value' : 'Solo value (edge+)' }}
-    </button>
-    <button class="text-xs px-3 py-1.5 rounded font-semibold"
-            style="background:#3B82F6; color:#fff;" (click)="autoFill(3)">
-      ⚡ Auto-combinada (top 3)
-    </button>
+<div class="flex items-end justify-between flex-wrap gap-3 mb-1">
+  <div>
+    <h1 class="text-2xl font-bold">Apuestas por partido</h1>
+    <p class="text-xs mt-1" style="color:#94A3B8;">
+      ordenado por fecha · horarios en hora centro de México 🇲🇽 · enfocado en las más probables
+    </p>
   </div>
+  <button class="text-sm px-4 py-2 rounded-lg font-semibold"
+          style="background:#3B82F6; color:#fff;" (click)="autoFill(5)">
+    ⚡ Armar combinada (5 más probables)
+  </button>
 </div>
 @if (note) {
-  <p class="text-xs mb-3" style="color:#94A3B8;">{{ note }}</p>
+  <p class="text-xs mb-5" style="color:#475569;">{{ note }}</p>
 }
 
-<!-- Best bets per match, ordered by date (Mexico Central time) -->
-<div class="mb-8">
-  <div class="flex items-end justify-between flex-wrap gap-2 mb-4">
-    <h2 class="text-lg font-bold flex items-center gap-2">📅 Apuestas por partido</h2>
-    <span class="text-xs" style="color:#94A3B8;">ordenado por fecha · horarios en hora centro de México 🇲🇽</span>
-  </div>
-  @if (loadingByMatch) {
-    <p class="text-center py-10 text-sm" style="color:#94A3B8;">Simulando todos los partidos…</p>
-  } @else if (byMatchGroups.length === 0) {
-    <p class="text-center py-10 text-sm" style="color:#94A3B8;">Sin partidos próximos.</p>
-  } @else {
-    @for (g of byMatchGroups; track g.date) {
-      <div class="mb-7">
-        <div class="flex items-center gap-3 mb-3">
-          <span class="text-sm capitalize font-bold px-3 py-1.5 rounded-lg"
-                style="background:rgba(59,130,246,0.15); color:#93C5FD;">
-            {{ g.date | date:'EEEE d \'de\' MMMM':mxTz }}
-          </span>
-          <span class="text-xs" style="color:#475569;">{{ g.matches.length }} partido(s)</span>
-          <div class="flex-1 h-px" style="background:rgba(30,58,95,0.6);"></div>
-        </div>
+<div class="grid grid-cols-3 gap-6 items-start">
+  <!-- Fixtures with their top picks -->
+  <div class="col-span-2">
+    @if (loadingByMatch) {
+      <p class="text-center py-12 text-sm" style="color:#94A3B8;">Simulando todos los partidos…</p>
+    } @else if (byMatchGroups.length === 0) {
+      <p class="text-center py-12 text-sm" style="color:#94A3B8;">Sin partidos próximos.</p>
+    } @else {
+      @for (g of byMatchGroups; track g.date) {
+        <div class="mb-7">
+          <div class="flex items-center gap-3 mb-3">
+            <span class="text-sm capitalize font-bold px-3 py-1.5 rounded-lg"
+                  style="background:rgba(59,130,246,0.15); color:#93C5FD;">
+              {{ g.date | date:'EEEE d \'de\' MMMM':mxTz }}
+            </span>
+            <span class="text-xs" style="color:#475569;">{{ g.matches.length }} partido(s)</span>
+            <div class="flex-1 h-px" style="background:rgba(30,58,95,0.6);"></div>
+          </div>
 
-        <div class="flex flex-col gap-4">
-          @for (m of g.matches; track m.match_id) {
-            <div class="card" style="padding:20px;">
-              <!-- fixture header -->
-              <div class="flex items-center justify-between mb-4 pb-3 border-b" style="border-color:rgba(30,58,95,0.6);">
-                <a [routerLink]="['/partido', m.match_id]" class="flex items-center gap-3 hover:opacity-80">
-                  <span class="text-2xl">{{ flag(m.home_code) }}</span>
-                  <span class="font-bold text-base">{{ m.home_team }}</span>
-                  <span class="text-sm px-2" style="color:#475569;">vs</span>
-                  <span class="font-bold text-base">{{ m.away_team }}</span>
-                  <span class="text-2xl">{{ flag(m.away_code) }}</span>
-                </a>
-                <div class="text-right">
-                  <p class="font-mono font-bold text-sm" style="color:#F8FAFC;">
-                    {{ m.kickoff_utc | date:'HH:mm':mxTz }} <span class="text-xs" style="color:#64748B;">hrs</span>
-                  </p>
-                  @if (m.group) {
-                    <p class="text-xs" style="color:#94A3B8;">Grupo {{ m.group }}</p>
+          <div class="flex flex-col gap-5">
+            @for (m of g.matches; track m.match_id) {
+              <div class="card" style="padding:20px;">
+                <!-- fixture header -->
+                <div class="flex items-center justify-between mb-4 pb-3 border-b" style="border-color:rgba(30,58,95,0.6);">
+                  <a [routerLink]="['/partido', m.match_id]" class="flex items-center gap-3 hover:opacity-80">
+                    <span class="text-2xl">{{ flag(m.home_code) }}</span>
+                    <span class="font-bold text-base">{{ m.home_team }}</span>
+                    <span class="text-sm px-1" style="color:#475569;">vs</span>
+                    <span class="font-bold text-base">{{ m.away_team }}</span>
+                    <span class="text-2xl">{{ flag(m.away_code) }}</span>
+                  </a>
+                  <div class="text-right">
+                    <p class="font-mono font-bold text-sm" style="color:#F8FAFC;">
+                      {{ m.kickoff_utc | date:'HH:mm':mxTz }} <span class="text-xs" style="color:#64748B;">hrs CDMX</span>
+                    </p>
+                    @if (m.group) {
+                      <p class="text-xs" style="color:#94A3B8;">Grupo {{ m.group }}</p>
+                    }
+                  </div>
+                </div>
+
+                <!-- picks -->
+                <div class="flex flex-col gap-3">
+                  @for (p of m.picks; track key(p); let i = $index) {
+                    <div class="rounded-xl"
+                         [style.background]="i === 0 ? 'rgba(34,197,94,0.06)' : 'rgba(255,255,255,0.02)'"
+                         [style.border]="'1px solid ' + (i === 0 ? 'rgba(34,197,94,0.25)' : 'rgba(30,58,95,0.6)')"
+                         style="padding:14px 16px;">
+                      <div class="flex items-center gap-3">
+                        <span class="flex-shrink-0 w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold"
+                              [style.background]="i === 0 ? '#22C55E' : 'rgba(148,163,184,0.15)'"
+                              [style.color]="i === 0 ? '#04140A' : '#94A3B8'">{{ i + 1 }}</span>
+                        <p class="flex-1 font-semibold text-sm"
+                           [style.color]="i === 0 ? '#22C55E' : '#F8FAFC'">{{ p.label }}</p>
+                        <button class="flex-shrink-0 text-xs font-semibold px-3 py-1.5 rounded-lg"
+                                [style.background]="inSlip(p) ? '#3B82F6' : 'transparent'"
+                                [style.color]="inSlip(p) ? '#fff' : '#94A3B8'"
+                                [style.border]="'1px solid ' + (inSlip(p) ? '#3B82F6' : '#334155')"
+                                (click)="toggle(p)">
+                          {{ inSlip(p) ? '✓ Agregada' : '+ Agregar' }}
+                        </button>
+                      </div>
+
+                      <!-- hard data -->
+                      <div class="flex flex-wrap gap-x-5 gap-y-1 mt-2.5 mb-2 pl-9 text-xs font-mono">
+                        <span><span style="color:#64748B;">prob </span><b style="color:#22C55E;">{{ (p.model_prob * 100).toFixed(0) }}%</b></span>
+                        <span><span style="color:#64748B;">IC </span><span style="color:#94A3B8;">{{ (p.prob_ci_low * 100).toFixed(0) }}–{{ (p.prob_ci_high * 100).toFixed(0) }}%</span></span>
+                        <span><span style="color:#64748B;">momio </span><b style="color:#F59E0B;">{{ p.decimal_odds.toFixed(2) }}</b></span>
+                        <span><span style="color:#64748B;">valor </span><b [style.color]="p.edge > 0 ? '#22C55E' : '#64748B'">{{ p.edge > 0 ? '+' : '' }}{{ (p.edge * 100).toFixed(0) }}%</b></span>
+                        <span><span style="color:#64748B;">xG </span><span style="color:#3B82F6;">{{ p.exp_goals_total.toFixed(1) }}</span></span>
+                        <span><span style="color:#64748B;">Kelly </span><span style="color:#A78BFA;">{{ (p.kelly_fraction * 100).toFixed(1) }}%</span></span>
+                      </div>
+
+                      <!-- always-visible justification -->
+                      <p class="text-xs leading-relaxed pl-9" style="color:#94A3B8;">{{ p.rationale }}</p>
+                    </div>
                   }
                 </div>
               </div>
-
-              <!-- picks list -->
-              <div class="flex flex-col gap-2">
-                @for (p of m.picks; track key(p); let i = $index) {
-                  <div class="rounded-lg overflow-hidden"
-                       [style.background]="i === 0 ? 'rgba(34,197,94,0.06)' : 'rgba(255,255,255,0.02)'"
-                       [style.border]="'1px solid ' + (i === 0 ? 'rgba(34,197,94,0.25)' : 'rgba(30,58,95,0.6)')">
-                    <div class="flex items-center gap-3 p-3">
-                      <!-- rank -->
-                      <span class="flex-shrink-0 w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold"
-                            [style.background]="i === 0 ? '#22C55E' : 'rgba(148,163,184,0.15)'"
-                            [style.color]="i === 0 ? '#04140A' : '#94A3B8'">{{ i + 1 }}</span>
-                      <!-- label -->
-                      <div class="flex-1 min-w-0">
-                        <p class="font-semibold text-sm truncate"
-                           [style.color]="i === 0 ? '#22C55E' : '#F8FAFC'">{{ p.label }}</p>
-                        <p class="text-xs" style="color:#64748B;">
-                          IC {{ (p.prob_ci_low * 100).toFixed(0) }}–{{ (p.prob_ci_high * 100).toFixed(0) }}%
-                          · xG {{ p.exp_goals_total.toFixed(1) }}
-                        </p>
-                      </div>
-                      <!-- prob -->
-                      <div class="text-right" style="min-width:48px;">
-                        <p class="font-mono font-bold text-lg" style="color:#22C55E;">{{ (p.model_prob * 100).toFixed(0) }}%</p>
-                      </div>
-                      <!-- odds -->
-                      <div class="text-right" style="min-width:48px;">
-                        <p class="text-xs" style="color:#64748B;">momio</p>
-                        <p class="font-mono font-bold text-sm" style="color:#F59E0B;">{{ p.decimal_odds.toFixed(2) }}</p>
-                      </div>
-                      <!-- value -->
-                      <div class="text-right" style="min-width:46px;">
-                        <p class="text-xs" style="color:#64748B;">valor</p>
-                        <p class="font-mono font-bold text-sm"
-                           [style.color]="p.edge > 0 ? '#22C55E' : '#64748B'">
-                          {{ p.edge > 0 ? '+' : '' }}{{ (p.edge * 100).toFixed(0) }}%
-                        </p>
-                      </div>
-                      <!-- kelly -->
-                      <div class="text-right" style="min-width:44px;">
-                        <p class="text-xs" style="color:#64748B;">Kelly</p>
-                        <p class="font-mono font-bold text-sm" style="color:#A78BFA;">{{ (p.kelly_fraction * 100).toFixed(1) }}%</p>
-                      </div>
-                      <!-- info -->
-                      <button class="flex-shrink-0 text-xs font-bold w-6 h-6 rounded-full"
-                              [style.color]="isExpanded(p) ? '#3B82F6' : '#64748B'"
-                              [style.background]="isExpanded(p) ? 'rgba(59,130,246,0.15)' : 'transparent'"
-                              (click)="toggleExpand(p)" title="¿Por qué?">i</button>
-                      <!-- add -->
-                      <button class="flex-shrink-0 text-xs font-semibold px-3 py-1.5 rounded"
-                              [style.background]="inSlip(p) ? 'rgba(59,130,246,0.15)' : 'transparent'"
-                              [style.color]="inSlip(p) ? '#3B82F6' : '#94A3B8'"
-                              [style.border]="'1px solid ' + (inSlip(p) ? '#3B82F6' : '#334155')"
-                              (click)="toggle(p)">{{ inSlip(p) ? '✓' : '+' }}</button>
-                    </div>
-                    @if (isExpanded(p)) {
-                      <div class="px-3 pb-3">
-                        <p class="text-xs leading-relaxed p-3 rounded"
-                           style="color:#CBD5E1; background:rgba(0,0,0,0.2); border-left:3px solid #3B82F6;">
-                          <span class="font-semibold" style="color:#93C5FD;">¿Por qué? </span>{{ p.rationale }}
-                        </p>
-                      </div>
-                    }
-                  </div>
-                }
-              </div>
-            </div>
-          }
-        </div>
-      </div>
-    }
-  }
-</div>
-
-<div class="grid grid-cols-3 gap-5">
-  <!-- Available picks -->
-  <div class="col-span-2">
-    <div class="card p-3">
-      <div class="flex items-center justify-between mb-2 px-1">
-        <span class="card-label">Picks disponibles (toca para agregar)</span>
-        <span class="text-xs" style="color:#94A3B8;">{{ available.length }} opciones</span>
-      </div>
-      @if (loading) {
-        <p class="text-center py-8 text-sm" style="color:#94A3B8;">Cargando…</p>
-      } @else {
-        <table class="w-full text-sm">
-          <thead>
-            <tr class="text-xs uppercase tracking-wider border-b" style="color:#94A3B8; border-color:#1E3A5F;">
-              <th class="text-left p-2 font-semibold">Partido</th>
-              <th class="text-left p-2 font-semibold">Apuesta</th>
-              <th class="p-2 font-semibold text-right">Prob.</th>
-              <th class="p-2 font-semibold text-right">Seguridad</th>
-              <th class="p-2 font-semibold text-right">Valor</th>
-              <th class="p-2 font-semibold text-right">Momio</th>
-              <th class="p-2 w-8"></th>
-              <th class="p-2 w-10"></th>
-            </tr>
-          </thead>
-          <tbody>
-            @for (b of available; track key(b)) {
-              <tr class="border-b cursor-pointer" style="border-color:rgba(30,58,95,0.5);"
-                  [style.background]="inSlip(b) ? 'rgba(59,130,246,0.10)' : 'transparent'"
-                  (click)="toggle(b)">
-                <td class="p-2">{{ b.home_team }} <span style="color:#475569">vs</span> {{ b.away_team }}</td>
-                <td class="p-2 font-semibold">{{ b.label }}</td>
-                <td class="p-2 font-mono text-right" style="color:#22C55E;">{{ (b.model_prob * 100).toFixed(0) }}%</td>
-                <td class="p-2 text-right">
-                  <span class="text-xs font-mono px-1.5 py-0.5 rounded"
-                        [style.background]="b.safety_score >= 0.75 ? 'rgba(34,197,94,0.15)' : b.safety_score >= 0.6 ? 'rgba(245,158,11,0.15)' : 'rgba(148,163,184,0.12)'"
-                        [style.color]="b.safety_score >= 0.75 ? '#22C55E' : b.safety_score >= 0.6 ? '#F59E0B' : '#94A3B8'">
-                    {{ (b.safety_score * 100).toFixed(0) }}
-                  </span>
-                </td>
-                <td class="p-2 text-right">
-                  @if (b.source === 'market') {
-                    <span class="font-mono text-xs font-bold"
-                          [style.color]="b.edge > 0 ? '#22C55E' : '#EF4444'">
-                      {{ b.edge > 0 ? '+' : '' }}{{ (b.edge * 100).toFixed(0) }}%
-                    </span>
-                    <div class="text-xs" style="color:#64748B;">{{ b.bookmaker }}</div>
-                  } @else {
-                    <span class="text-xs" style="color:#475569;">justo</span>
-                  }
-                </td>
-                <td class="p-2 font-mono font-bold text-right" style="color:#F59E0B;">{{ b.decimal_odds.toFixed(2) }}</td>
-                <td class="p-2 text-center">
-                  <button class="text-xs font-bold w-5 h-5 rounded-full"
-                          [style.color]="isExpanded(b) ? '#3B82F6' : '#64748B'"
-                          [style.background]="isExpanded(b) ? 'rgba(59,130,246,0.15)' : 'transparent'"
-                          (click)="toggleExpand(b); $event.stopPropagation()"
-                          title="¿Por qué esta apuesta?">i</button>
-                </td>
-                <td class="p-2 text-center font-bold" [style.color]="inSlip(b) ? '#3B82F6' : '#475569'">
-                  {{ inSlip(b) ? '✓' : '+' }}
-                </td>
-              </tr>
-              @if (isExpanded(b)) {
-                <tr style="background:rgba(59,130,246,0.04);">
-                  <td colspan="8" class="px-3 pb-3 pt-1">
-                    <div class="text-xs leading-relaxed p-2 rounded"
-                         style="color:#CBD5E1; background:rgba(255,255,255,0.02); border-left:3px solid #3B82F6;">
-                      <span class="font-semibold" style="color:#93C5FD;">¿Por qué? </span>{{ b.rationale }}
-                    </div>
-                  </td>
-                </tr>
-              }
             }
-          </tbody>
-        </table>
+          </div>
+        </div>
       }
-    </div>
+    }
   </div>
 
-  <!-- Bet slip -->
+  <!-- Bet slip (sticky) -->
   <div>
     <div class="card p-4" style="position:sticky; top:1rem;">
       <div class="flex items-center justify-between mb-3">
-        <span class="card-label">Boleto</span>
+        <span class="card-label" style="margin:0;">Tu combinada</span>
         @if (summary.count > 0) {
           <button class="text-xs" style="color:#EF4444;" (click)="clear()">Limpiar</button>
         }
       </div>
 
+      @if (autoFillNote) {
+        <p class="text-xs mb-3 p-2 rounded" style="color:#93C5FD; background:rgba(59,130,246,0.08);">{{ autoFillNote }}</p>
+      }
+
       @if (summary.count === 0) {
-        <p class="text-sm py-6 text-center" style="color:#94A3B8;">
-          Agrega picks de la izquierda para armar tu parlay.
-        </p>
+        <div class="text-center py-8">
+          <p class="text-3xl mb-2">🎟️</p>
+          <p class="text-sm" style="color:#94A3B8;">
+            Agrega apuestas para probar momios y ver tu pago potencial.
+          </p>
+          <button class="mt-3 text-xs font-semibold px-3 py-2 rounded-lg"
+                  style="background:rgba(59,130,246,0.15); color:#3B82F6; border:1px solid #3B82F6;"
+                  (click)="autoFill(5)">⚡ Armar 5 automáticas</button>
+        </div>
       } @else {
         <div class="flex flex-col gap-2 mb-4">
           @for (b of slip.getPicks(); track key(b)) {
             <div class="flex items-start justify-between gap-2 p-2 rounded" style="background:rgba(255,255,255,0.03);">
-              <div class="flex-1">
-                <p class="text-sm font-semibold">{{ b.label }}</p>
-                <p class="text-xs" style="color:#94A3B8;">{{ b.home_team }} vs {{ b.away_team }}</p>
+              <div class="flex-1 min-w-0">
+                <p class="text-sm font-semibold truncate">{{ b.label }}</p>
+                <p class="text-xs truncate" style="color:#94A3B8;">
+                  {{ flag(b.home_code) }} {{ b.home_team }} vs {{ b.away_team }} {{ flag(b.away_code) }}
+                </p>
               </div>
-              <div class="text-right">
+              <div class="text-right flex-shrink-0">
                 <p class="font-mono text-sm font-bold" style="color:#F59E0B;">{{ b.decimal_odds.toFixed(2) }}</p>
-                <button class="text-xs" style="color:#EF4444;" (click)="remove(b); $event.stopPropagation()">quitar</button>
+                <button class="text-xs" style="color:#EF4444;" (click)="remove(b)">quitar</button>
               </div>
             </div>
           }
         </div>
 
         <div class="mb-3">
-          <label class="card-label">Stake (apuesta)</label>
+          <label class="card-label">Tu apuesta (MXN)</label>
           <input type="number" min="0" [value]="slip.stake" (input)="onStake($any($event.target).value)"
                  class="w-full mt-1 px-3 py-2 rounded font-mono text-lg"
                  style="background:#0A1322; border:1px solid #1E3A5F; color:#F8FAFC;" />
@@ -260,12 +159,8 @@
             <span class="font-mono font-bold" style="color:#F59E0B;">{{ summary.combinedOdds.toFixed(2) }}</span>
           </div>
           <div class="flex justify-between">
-            <span style="color:#94A3B8;">Prob. modelo (que pase todo)</span>
+            <span style="color:#94A3B8;">Prob. de que pase todo</span>
             <span class="font-mono" style="color:#22C55E;">{{ (summary.combinedProb * 100).toFixed(1) }}%</span>
-          </div>
-          <div class="flex justify-between">
-            <span style="color:#94A3B8;">Prob. implícita</span>
-            <span class="font-mono" style="color:#94A3B8;">{{ (summary.impliedProb * 100).toFixed(1) }}%</span>
           </div>
           <div class="flex justify-between items-center border-t pt-2 mt-1" style="border-color:#1E3A5F;">
             <span style="color:#94A3B8;">Pago potencial</span>
@@ -276,7 +171,7 @@
             <span class="font-mono font-semibold" style="color:#22C55E;">+{{ summary.profit.toFixed(2) }}</span>
           </div>
           <div class="flex justify-between">
-            <span style="color:#94A3B8;">Valor esperado (EV)</span>
+            <span style="color:#94A3B8;">Valor esperado</span>
             <span class="font-mono font-semibold" [style.color]="summary.expectedValue >= 0 ? '#22C55E' : '#EF4444'">
               {{ summary.expectedValue >= 0 ? '+' : '' }}{{ summary.expectedValue.toFixed(2) }}
             </span>
@@ -284,8 +179,7 @@
         </div>
 
         <p class="text-xs mt-3" style="color:#475569;">
-          Parlay = todas deben acertar. La prob. combinada asume independencia entre partidos.
-          EV positivo sugiere apuesta de valor según el modelo.
+          Combinada = todas deben acertar. Prob. combinada asume independencia entre partidos.
         </p>
       }
     </div>
@@ -293,9 +187,9 @@
 </div>
 
 <!-- Tournament outrights: champion -->
-<div class="card p-4 mt-5">
+<div class="card p-4 mt-6">
   <div class="flex items-center justify-between mb-3 px-1">
-    <span class="card-label">🏆 Campeón del Mundial — probabilidad simulada</span>
+    <span class="card-label" style="margin:0;">🏆 Campeón del Mundial — probabilidad simulada</span>
     <span class="text-xs" style="color:#94A3B8;">Monte Carlo del bracket completo</span>
   </div>
   @if (loadingOutrights) {

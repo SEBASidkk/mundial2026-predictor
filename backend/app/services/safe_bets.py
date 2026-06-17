@@ -379,6 +379,9 @@ def best_bet_per_match(
         picks = [p for p in picks if p["market"] not in TRIVIAL_MARKETS]
         if not picks:
             continue
+        # Focus on the most LIKELY outcomes (not the biggest-payout longshots):
+        # rank by model probability, then by value edge as a tie-breaker.
+        picks.sort(key=lambda p: (p["model_prob"], p["edge"]), reverse=True)
         chosen = _dedup_by_market(picks, top)
         out.append({
             "match_id": m.id,

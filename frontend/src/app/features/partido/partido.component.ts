@@ -119,6 +119,8 @@ export class PartidoComponent implements OnInit, AfterViewChecked {
       },
       options: {
         animation: false,
+        responsive: true,
+        maintainAspectRatio: false,
         scales: {
           r: {
             beginAtZero: true,
