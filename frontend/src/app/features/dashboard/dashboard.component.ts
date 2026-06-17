@@ -4,6 +4,7 @@ import { RouterLink } from '@angular/router';
 import { ApiService } from '../../core/services/api.service';
 import { MatchCardComponent } from '../../shared/components/match-card/match-card.component';
 import { Match, ModelMeta, BetPick } from '../../core/models/match.model';
+import { flagEmoji, MX_TZ } from '../../core/utils/flag.util';
 
 @Component({
   selector: 'app-dashboard',
@@ -93,11 +94,14 @@ export class DashboardComponent implements OnInit, OnDestroy {
 
   ngOnDestroy(): void { this.clearPoll(); }
 
-  get topTeams(): { name: string; elo: number }[] {
-    const map = new Map<number, { name: string; elo: number }>();
+  flag = flagEmoji;
+  readonly mxTz = MX_TZ;
+
+  get topTeams(): { name: string; elo: number; code: string | null }[] {
+    const map = new Map<number, { name: string; elo: number; code: string | null }>();
     this.matches.forEach(m => {
-      map.set(m.home_team.id, { name: m.home_team.name, elo: m.home_team.elo_rating });
-      map.set(m.away_team.id, { name: m.away_team.name, elo: m.away_team.elo_rating });
+      map.set(m.home_team.id, { name: m.home_team.name, elo: m.home_team.elo_rating, code: m.home_team.country_code });
+      map.set(m.away_team.id, { name: m.away_team.name, elo: m.away_team.elo_rating, code: m.away_team.country_code });
     });
     return [...map.values()].sort((a, b) => b.elo - a.elo).slice(0, 8);
   }

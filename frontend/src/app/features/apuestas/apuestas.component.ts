@@ -5,6 +5,7 @@ import { RouterLink } from '@angular/router';
 import { ApiService } from '../../core/services/api.service';
 import { BetSlipService, SlipSummary, pickKey } from '../../core/services/bet-slip.service';
 import { BetPick, SafeBet, OutrightPick, MatchBestBet } from '../../core/models/match.model';
+import { flagEmoji, MX_TZ } from '../../core/utils/flag.util';
 
 interface MatchDayGroup {
   date: string;             // ISO date (yyyy-MM-dd) for the DatePipe
@@ -106,6 +107,9 @@ export class ApuestasComponent implements OnInit {
   }
 
   isExpanded(p: SafeBet): boolean { return this.expanded === pickKey(p); }
+
+  flag = flagEmoji;
+  readonly mxTz = MX_TZ;
 
   key = pickKey;
   inSlip(p: BetPick): boolean { return this.slip.has(p); }

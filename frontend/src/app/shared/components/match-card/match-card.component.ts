@@ -2,6 +2,7 @@ import { Component, Input } from '@angular/core';
 import { CommonModule, DatePipe } from '@angular/common';
 import { RouterLink } from '@angular/router';
 import { Match } from '../../../core/models/match.model';
+import { flagEmoji, MX_TZ } from '../../../core/utils/flag.util';
 
 @Component({
   selector: 'app-match-card',
@@ -11,6 +12,9 @@ import { Match } from '../../../core/models/match.model';
 })
 export class MatchCardComponent {
   @Input({ required: true }) match!: Match;
+
+  flag = flagEmoji;
+  readonly mxTz = MX_TZ;
 
   get homeProb(): number { return this.match.prediction?.prob_home_win ?? 0; }
   get drawProb(): number { return this.match.prediction?.prob_draw ?? 0; }

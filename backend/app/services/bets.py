@@ -73,6 +73,8 @@ def build_match_picks(
     home = match.home_team.name
     away = match.away_team.name
 
+    home_code = match.home_team.country_code
+    away_code = match.away_team.country_code
     picks: List[Dict] = []
     for c in _candidate_selections(markets, home, away):
         prob = round(c["prob"], 5)
@@ -92,6 +94,8 @@ def build_match_picks(
             "match_id": match.id,
             "home_team": home,
             "away_team": away,
+            "home_code": home_code,
+            "away_code": away_code,
             "kickoff_utc": match.kickoff_utc.isoformat(),
             "market": c["market"],
             "selection": c["selection"],

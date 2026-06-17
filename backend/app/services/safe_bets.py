@@ -241,6 +241,8 @@ def simulated_match_picks(
             "match_id": match.id,
             "home_team": home,
             "away_team": away,
+            "home_code": match.home_team.country_code,
+            "away_code": match.away_team.country_code,
             "kickoff_utc": match.kickoff_utc.isoformat(),
             "market": market,
             "selection": selection,
@@ -324,18 +326,37 @@ def safe_bets(
     )
 
 
+def _dedup_by_market(picks: List[Dict], top: int) -> List[Dict]:
+    """Top `top` picks keeping at most one per market family so a match's
+    recommendations are varied (not Over 2.5 + Over 1.5 + Over 0.5)."""
+    seen_families: set = set()
+    out: List[Dict] = []
+    for p in picks:
+        # collapse over_*/under_* into one "goals" family, keep 1x2/btts distinct
+        mk = p["market"]
+        family = "goals" if (mk.startswith("over") or mk.startswith("under")) else mk
+        if family in seen_families:
+            continue
+        seen_families.add(family)
+        out.append(p)
+        if len(out) >= top:
+            break
+    return out
+
+
 def best_bet_per_match(
     db: Session,
     n: int = 8000,
+    top: int = 3,
     upcoming_only: bool = True,
 ) -> List[Dict]:
-    """One best pick for every match, returned in chronological order.
+    """Top `top` picks for every match, returned in chronological order.
 
-    Each match contributes its single strongest selection (by safety score),
-    so the caller gets a date-ordered fixture list where every game carries its
-    own data-backed recommendation — not a cross-match leaderboard. The band is
-    relaxed (every fixture yields a pick) but trivial near-locks are still
-    skipped so the suggestion is informative.
+    Each match contributes its strongest selections (by safety score, deduped
+    by market family), so the caller gets a date-ordered fixture list where
+    every game carries several data-backed recommendations — not a cross-match
+    leaderboard. The band is relaxed (every fixture yields picks) but trivial
+    near-locks are skipped so the suggestions stay informative.
     """
     q = (
         db.query(Match)
@@ -358,15 +379,17 @@ def best_bet_per_match(
         picks = [p for p in picks if p["market"] not in TRIVIAL_MARKETS]
         if not picks:
             continue
-        best = picks[0]
+        chosen = _dedup_by_market(picks, top)
         out.append({
             "match_id": m.id,
             "home_team": m.home_team.name,
             "away_team": m.away_team.name,
+            "home_code": m.home_team.country_code,
+            "away_code": m.away_team.country_code,
             "kickoff_utc": m.kickoff_utc.isoformat(),
             "stage": m.stage,
             "group": m.group,
-            "best_pick": best,
+            "picks": chosen,
         })
     return out
 

@@ -53,6 +53,8 @@ export interface BetPick {
   match_id: number;
   home_team: string;
   away_team: string;
+  home_code?: string | null;
+  away_code?: string | null;
   kickoff_utc: string;
   market: string;
   selection: string;
@@ -91,10 +93,12 @@ export interface MatchBestBet {
   match_id: number;
   home_team: string;
   away_team: string;
+  home_code: string | null;
+  away_code: string | null;
   kickoff_utc: string;
   stage: string | null;
   group: string | null;
-  best_pick: SafeBet;
+  picks: SafeBet[];
 }
 
 export interface MatchBestBetsResponse {

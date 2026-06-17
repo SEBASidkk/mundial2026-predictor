@@ -69,7 +69,11 @@
           @for (b of bestBets; track $index) {
             <tr class="border-b hover:bg-white/5 cursor-pointer" style="border-color:rgba(30,58,95,0.5);"
                 [routerLink]="['/partido', b.match_id]">
-              <td class="p-2">{{ b.home_team }} <span style="color:#475569">vs</span> {{ b.away_team }}</td>
+              <td class="p-2">
+                <span class="mr-1">{{ flag(b.home_code) }}</span>{{ b.home_team }}
+                <span style="color:#475569">vs</span>
+                {{ b.away_team }}<span class="ml-1">{{ flag(b.away_code) }}</span>
+              </td>
               <td class="p-2 font-semibold">{{ b.label }}</td>
               <td class="p-2 font-mono text-right" style="color:#22C55E;">{{ (b.model_prob * 100).toFixed(0) }}%</td>
               <td class="p-2 font-mono font-bold text-right" style="color:#F59E0B;">{{ b.decimal_odds.toFixed(2) }}</td>
@@ -121,7 +125,7 @@
           @for (t of topTeams; track t.name; let i = $index) {
             <tr class="border-b" style="border-color:rgba(30,58,95,0.5);">
               <td class="p-2 font-mono text-xs" style="color:#94A3B8;">{{ i + 1 }}</td>
-              <td class="p-2">{{ t.name }}</td>
+              <td class="p-2"><span class="mr-1.5">{{ flag(t.code) }}</span>{{ t.name }}</td>
               <td class="p-2 font-mono font-semibold text-right" style="color:#3B82F6;">
                 {{ t.elo.toFixed(0) }}
               </td>

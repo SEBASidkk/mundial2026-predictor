@@ -8,6 +8,7 @@
 @if (match) {
   <div class="card flex items-center justify-between mb-5 p-6">
     <div class="text-center flex-1">
+      <p class="text-4xl mb-1">{{ flag(match.home_team.country_code) }}</p>
       <p class="font-bold text-xl">{{ match.home_team.name }}</p>
       <p class="font-mono text-xs mt-1" style="color:#3B82F6;">
         ELO {{ match.home_team.elo_rating.toFixed(0) }}
@@ -44,12 +45,13 @@
           <div class="rounded-r flex-1" style="background:#EF4444;"></div>
         </div>
         <p class="font-mono text-xs mt-2" style="color:#94A3B8;">
-          {{ match.kickoff_utc | date:'dd MMM yyyy · HH:mm' }} UTC · {{ match.venue_city }}
+          {{ match.kickoff_utc | date:'dd MMM yyyy · HH:mm':mxTz }} CDMX{{ match.venue_city ? ' · ' + match.venue_city : '' }}
         </p>
       </div>
     }
 
     <div class="text-center flex-1">
+      <p class="text-4xl mb-1">{{ flag(match.away_team.country_code) }}</p>
       <p class="font-bold text-xl">{{ match.away_team.name }}</p>
       <p class="font-mono text-xs mt-1" style="color:#EF4444;">
         ELO {{ match.away_team.elo_rating.toFixed(0) }}

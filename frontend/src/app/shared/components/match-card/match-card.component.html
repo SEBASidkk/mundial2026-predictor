@@ -10,12 +10,15 @@
       {{ stageLabel }}{{ match.group ? ' · Grupo ' + match.group : '' }}
     </span>
     <span class="font-mono text-xs" style="color:#94A3B8;">
-      {{ match.kickoff_utc | date:'dd MMM · HH:mm' }} UTC
+      {{ match.kickoff_utc | date:'dd MMM · HH:mm':mxTz }} CDMX
     </span>
   </div>
 
   <div class="flex items-center justify-between gap-3">
-    <span class="font-semibold text-sm flex-1">{{ match.home_team.name }}</span>
+    <span class="font-semibold text-sm flex-1 flex items-center gap-2">
+      <span class="text-xl">{{ flag(match.home_team.country_code) }}</span>
+      {{ match.home_team.name }}
+    </span>
     <div class="text-center min-w-[96px]">
       <div class="flex gap-1 justify-center mb-1">
         <span class="prob-pill prob-home">{{ (homeProb * 100).toFixed(0) }}%</span>
@@ -24,7 +27,10 @@
       </div>
       <span class="text-xs font-mono" style="color:#94A3B8;">LOC · EMP · VIS</span>
     </div>
-    <span class="font-semibold text-sm flex-1 text-right">{{ match.away_team.name }}</span>
+    <span class="font-semibold text-sm flex-1 text-right flex items-center justify-end gap-2">
+      {{ match.away_team.name }}
+      <span class="text-xl">{{ flag(match.away_team.country_code) }}</span>
+    </span>
   </div>
 
   <div class="flex h-1 rounded overflow-hidden mt-3 gap-px">

@@ -17,92 +17,115 @@
   <p class="text-xs mb-3" style="color:#94A3B8;">{{ note }}</p>
 }
 
-<!-- Best bet per match, ordered by date -->
-<div class="mb-6">
-  <div class="flex items-center justify-between flex-wrap gap-2 mb-2">
-    <h2 class="section-title">📅 Mejor apuesta por partido · ordenado por fecha</h2>
-    <span class="text-xs" style="color:#94A3B8;">una recomendación con datos duros por cada juego</span>
+<!-- Best bets per match, ordered by date (Mexico Central time) -->
+<div class="mb-8">
+  <div class="flex items-end justify-between flex-wrap gap-2 mb-4">
+    <h2 class="text-lg font-bold flex items-center gap-2">📅 Apuestas por partido</h2>
+    <span class="text-xs" style="color:#94A3B8;">ordenado por fecha · horarios en hora centro de México 🇲🇽</span>
   </div>
   @if (loadingByMatch) {
-    <p class="text-center py-8 text-sm" style="color:#94A3B8;">Simulando todos los partidos…</p>
+    <p class="text-center py-10 text-sm" style="color:#94A3B8;">Simulando todos los partidos…</p>
   } @else if (byMatchGroups.length === 0) {
-    <p class="text-center py-8 text-sm" style="color:#94A3B8;">Sin partidos próximos.</p>
+    <p class="text-center py-10 text-sm" style="color:#94A3B8;">Sin partidos próximos.</p>
   } @else {
     @for (g of byMatchGroups; track g.date) {
-      <div class="mb-4">
-        <div class="flex items-center gap-2 mb-2">
-          <span class="text-xs uppercase tracking-wider font-bold px-2 py-1 rounded"
+      <div class="mb-7">
+        <div class="flex items-center gap-3 mb-3">
+          <span class="text-sm capitalize font-bold px-3 py-1.5 rounded-lg"
                 style="background:rgba(59,130,246,0.15); color:#93C5FD;">
-            {{ g.date | date:'EEEE d MMM y' }}
+            {{ g.date | date:'EEEE d \'de\' MMMM':mxTz }}
           </span>
           <span class="text-xs" style="color:#475569;">{{ g.matches.length }} partido(s)</span>
           <div class="flex-1 h-px" style="background:rgba(30,58,95,0.6);"></div>
         </div>
 
-        <div class="grid grid-cols-2 gap-3">
+        <div class="flex flex-col gap-4">
           @for (m of g.matches; track m.match_id) {
-            <div class="card p-3">
+            <div class="card" style="padding:20px;">
               <!-- fixture header -->
-              <div class="flex items-center justify-between mb-2">
-                <a [routerLink]="['/partido', m.match_id]" class="font-semibold hover:underline">
-                  {{ m.home_team }} <span style="color:#475569">vs</span> {{ m.away_team }}
+              <div class="flex items-center justify-between mb-4 pb-3 border-b" style="border-color:rgba(30,58,95,0.6);">
+                <a [routerLink]="['/partido', m.match_id]" class="flex items-center gap-3 hover:opacity-80">
+                  <span class="text-2xl">{{ flag(m.home_code) }}</span>
+                  <span class="font-bold text-base">{{ m.home_team }}</span>
+                  <span class="text-sm px-2" style="color:#475569;">vs</span>
+                  <span class="font-bold text-base">{{ m.away_team }}</span>
+                  <span class="text-2xl">{{ flag(m.away_code) }}</span>
                 </a>
-                <span class="font-mono text-xs" style="color:#94A3B8;">{{ m.kickoff_utc | date:'HH:mm' }}</span>
-              </div>
-
-              <!-- best pick headline -->
-              <div class="flex items-center justify-between p-2 rounded mb-2"
-                   style="background:rgba(34,197,94,0.08); border:1px solid rgba(34,197,94,0.25);">
-                <div>
-                  <p class="text-xs" style="color:#64748B;">Mejor apuesta</p>
-                  <p class="font-bold" style="color:#22C55E;">{{ m.best_pick.label }}</p>
-                </div>
                 <div class="text-right">
-                  <p class="font-mono text-2xl font-bold" style="color:#22C55E;">
-                    {{ (m.best_pick.model_prob * 100).toFixed(0) }}%
+                  <p class="font-mono font-bold text-sm" style="color:#F8FAFC;">
+                    {{ m.kickoff_utc | date:'HH:mm':mxTz }} <span class="text-xs" style="color:#64748B;">hrs</span>
                   </p>
-                  <p class="text-xs" style="color:#64748B;">
-                    IC {{ (m.best_pick.prob_ci_low * 100).toFixed(0) }}–{{ (m.best_pick.prob_ci_high * 100).toFixed(0) }}%
-                  </p>
+                  @if (m.group) {
+                    <p class="text-xs" style="color:#94A3B8;">Grupo {{ m.group }}</p>
+                  }
                 </div>
               </div>
 
-              <!-- hard data row -->
-              <div class="grid grid-cols-4 gap-1 text-center mb-2">
-                <div class="p-1 rounded" style="background:rgba(255,255,255,0.03);">
-                  <p class="text-xs" style="color:#64748B;">Momio</p>
-                  <p class="font-mono font-bold text-sm" style="color:#F59E0B;">{{ m.best_pick.decimal_odds.toFixed(2) }}</p>
-                </div>
-                <div class="p-1 rounded" style="background:rgba(255,255,255,0.03);">
-                  <p class="text-xs" style="color:#64748B;">Valor</p>
-                  <p class="font-mono font-bold text-sm"
-                     [style.color]="m.best_pick.edge > 0 ? '#22C55E' : '#94A3B8'">
-                    {{ m.best_pick.edge > 0 ? '+' : '' }}{{ (m.best_pick.edge * 100).toFixed(0) }}%
-                  </p>
-                </div>
-                <div class="p-1 rounded" style="background:rgba(255,255,255,0.03);">
-                  <p class="text-xs" style="color:#64748B;">xGoles</p>
-                  <p class="font-mono font-bold text-sm" style="color:#3B82F6;">{{ m.best_pick.exp_goals_total.toFixed(1) }}</p>
-                </div>
-                <div class="p-1 rounded" style="background:rgba(255,255,255,0.03);">
-                  <p class="text-xs" style="color:#64748B;">Kelly</p>
-                  <p class="font-mono font-bold text-sm" style="color:#A78BFA;">{{ (m.best_pick.kelly_fraction * 100).toFixed(1) }}%</p>
-                </div>
+              <!-- picks list -->
+              <div class="flex flex-col gap-2">
+                @for (p of m.picks; track key(p); let i = $index) {
+                  <div class="rounded-lg overflow-hidden"
+                       [style.background]="i === 0 ? 'rgba(34,197,94,0.06)' : 'rgba(255,255,255,0.02)'"
+                       [style.border]="'1px solid ' + (i === 0 ? 'rgba(34,197,94,0.25)' : 'rgba(30,58,95,0.6)')">
+                    <div class="flex items-center gap-3 p-3">
+                      <!-- rank -->
+                      <span class="flex-shrink-0 w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold"
+                            [style.background]="i === 0 ? '#22C55E' : 'rgba(148,163,184,0.15)'"
+                            [style.color]="i === 0 ? '#04140A' : '#94A3B8'">{{ i + 1 }}</span>
+                      <!-- label -->
+                      <div class="flex-1 min-w-0">
+                        <p class="font-semibold text-sm truncate"
+                           [style.color]="i === 0 ? '#22C55E' : '#F8FAFC'">{{ p.label }}</p>
+                        <p class="text-xs" style="color:#64748B;">
+                          IC {{ (p.prob_ci_low * 100).toFixed(0) }}–{{ (p.prob_ci_high * 100).toFixed(0) }}%
+                          · xG {{ p.exp_goals_total.toFixed(1) }}
+                        </p>
+                      </div>
+                      <!-- prob -->
+                      <div class="text-right" style="min-width:48px;">
+                        <p class="font-mono font-bold text-lg" style="color:#22C55E;">{{ (p.model_prob * 100).toFixed(0) }}%</p>
+                      </div>
+                      <!-- odds -->
+                      <div class="text-right" style="min-width:48px;">
+                        <p class="text-xs" style="color:#64748B;">momio</p>
+                        <p class="font-mono font-bold text-sm" style="color:#F59E0B;">{{ p.decimal_odds.toFixed(2) }}</p>
+                      </div>
+                      <!-- value -->
+                      <div class="text-right" style="min-width:46px;">
+                        <p class="text-xs" style="color:#64748B;">valor</p>
+                        <p class="font-mono font-bold text-sm"
+                           [style.color]="p.edge > 0 ? '#22C55E' : '#64748B'">
+                          {{ p.edge > 0 ? '+' : '' }}{{ (p.edge * 100).toFixed(0) }}%
+                        </p>
+                      </div>
+                      <!-- kelly -->
+                      <div class="text-right" style="min-width:44px;">
+                        <p class="text-xs" style="color:#64748B;">Kelly</p>
+                        <p class="font-mono font-bold text-sm" style="color:#A78BFA;">{{ (p.kelly_fraction * 100).toFixed(1) }}%</p>
+                      </div>
+                      <!-- info -->
+                      <button class="flex-shrink-0 text-xs font-bold w-6 h-6 rounded-full"
+                              [style.color]="isExpanded(p) ? '#3B82F6' : '#64748B'"
+                              [style.background]="isExpanded(p) ? 'rgba(59,130,246,0.15)' : 'transparent'"
+                              (click)="toggleExpand(p)" title="¿Por qué?">i</button>
+                      <!-- add -->
+                      <button class="flex-shrink-0 text-xs font-semibold px-3 py-1.5 rounded"
+                              [style.background]="inSlip(p) ? 'rgba(59,130,246,0.15)' : 'transparent'"
+                              [style.color]="inSlip(p) ? '#3B82F6' : '#94A3B8'"
+                              [style.border]="'1px solid ' + (inSlip(p) ? '#3B82F6' : '#334155')"
+                              (click)="toggle(p)">{{ inSlip(p) ? '✓' : '+' }}</button>
+                    </div>
+                    @if (isExpanded(p)) {
+                      <div class="px-3 pb-3">
+                        <p class="text-xs leading-relaxed p-3 rounded"
+                           style="color:#CBD5E1; background:rgba(0,0,0,0.2); border-left:3px solid #3B82F6;">
+                          <span class="font-semibold" style="color:#93C5FD;">¿Por qué? </span>{{ p.rationale }}
+                        </p>
+                      </div>
+                    }
+                  </div>
+                }
               </div>
-
-              <!-- data-backed justification -->
-              <p class="text-xs leading-relaxed p-2 rounded"
-                 style="color:#CBD5E1; background:rgba(255,255,255,0.02); border-left:3px solid #22C55E;">
-                {{ m.best_pick.rationale }}
-              </p>
-
-              <button class="w-full mt-2 text-xs font-semibold py-1.5 rounded"
-                      [style.background]="inSlip(m.best_pick) ? 'rgba(59,130,246,0.15)' : 'transparent'"
-                      [style.color]="inSlip(m.best_pick) ? '#3B82F6' : '#94A3B8'"
-                      [style.border]="'1px solid ' + (inSlip(m.best_pick) ? '#3B82F6' : '#334155')"
-                      (click)="toggle(m.best_pick)">
-                {{ inSlip(m.best_pick) ? '✓ En el boleto' : '+ Agregar al boleto' }}
-              </button>
             </div>
           }
         </div>

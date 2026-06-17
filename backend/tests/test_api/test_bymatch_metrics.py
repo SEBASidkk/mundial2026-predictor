@@ -85,7 +85,16 @@ def test_by_match_is_chronological_and_carries_best_pick():
     assert kickoffs == sorted(kickoffs)
     first = matches[0]
     assert first["match_id"] == 1   # the 2026-06-20 fixture comes first
-    pick = first["best_pick"]
+    assert first["home_code"] == "BRA"
+    assert isinstance(first["picks"], list) and len(first["picks"]) >= 1
+    # picks deduped by market family — no two share the goals family
+    families = [
+        "goals" if (p["market"].startswith("over") or p["market"].startswith("under"))
+        else p["market"]
+        for p in first["picks"]
+    ]
+    assert len(families) == len(set(families))
+    pick = first["picks"][0]
     for field in ("label", "model_prob", "safety_score", "rationale",
                   "prob_ci_low", "prob_ci_high", "kelly_fraction"):
         assert field in pick

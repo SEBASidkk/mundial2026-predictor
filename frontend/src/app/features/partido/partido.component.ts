@@ -3,6 +3,7 @@ import { CommonModule, DatePipe } from '@angular/common';
 import { ActivatedRoute } from '@angular/router';
 import { ApiService } from '../../core/services/api.service';
 import { MatchDetail, Markets, ScoreEntry, BetPick, SimResult } from '../../core/models/match.model';
+import { flagEmoji, MX_TZ } from '../../core/utils/flag.util';
 import {
   Chart, RadarController, RadialLinearScale,
   PointElement, LineElement, Filler, Tooltip, Legend,
@@ -20,6 +21,8 @@ export class PartidoComponent implements OnInit, AfterViewChecked {
   @ViewChild('radarCanvas') radarCanvas?: ElementRef<HTMLCanvasElement>;
 
   match: MatchDetail | null = null;
+  flag = flagEmoji;
+  readonly mxTz = MX_TZ;
   loading = true;
   error: string | null = null;
   sim: SimResult | null = null;

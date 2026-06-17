@@ -12,6 +12,8 @@ class BetPickOut(BaseModel):
     match_id: int
     home_team: str
     away_team: str
+    home_code: Optional[str] = None
+    away_code: Optional[str] = None
     kickoff_utc: str
     market: str
     selection: str
@@ -56,14 +58,16 @@ class ParlayOut(BaseModel):
 
 
 class MatchBestBet(BaseModel):
-    """A single fixture (chronological) with its strongest data-backed pick."""
+    """A single fixture (chronological) with its strongest data-backed picks."""
     match_id: int
     home_team: str
     away_team: str
+    home_code: Optional[str] = None
+    away_code: Optional[str] = None
     kickoff_utc: str
     stage: Optional[str] = None
     group: Optional[str] = None
-    best_pick: SafeBetOut
+    picks: List[SafeBetOut]
 
 
 class MatchBestBetsOut(BaseModel):

@@ -58,10 +58,11 @@ def get_safe_bets(
 @router.get("/bets/by-match", response_model=MatchBestBetsOut)
 def get_best_bet_per_match(
     n: int = Query(8000, ge=1000, le=100000),
+    top: int = Query(3, ge=1, le=6),
     db: Session = Depends(get_db),
 ):
-    """Date-ordered fixtures, each with its single strongest pick + rationale."""
-    rows = best_bet_per_match(db, n=n)
+    """Date-ordered fixtures, each with its top picks + rationale."""
+    rows = best_bet_per_match(db, n=n, top=top)
     return MatchBestBetsOut(
         n=n,
         note=_SAFE_NOTE,
@@ -70,10 +71,12 @@ def get_best_bet_per_match(
                 match_id=r["match_id"],
                 home_team=r["home_team"],
                 away_team=r["away_team"],
+                home_code=r["home_code"],
+                away_code=r["away_code"],
                 kickoff_utc=r["kickoff_utc"],
                 stage=r["stage"],
                 group=r["group"],
-                best_pick=SafeBetOut(**r["best_pick"]),
+                picks=[SafeBetOut(**p) for p in r["picks"]],
             )
             for r in rows
         ],
