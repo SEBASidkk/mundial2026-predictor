@@ -30,7 +30,7 @@ from app.models.odds import Odds
 from app.models.team import Team
 from pipeline.features.calibration import team_base_lambdas, played_matches
 from pipeline.models.dixon_coles import predict_match
-from pipeline.models.ensemble import blend_predictions, load_weights, elo_to_prob, _elo_1x2
+from pipeline.models.ensemble import blend_predictions, load_weights, second_opinion_1x2
 
 _KEYS = ("prob_home_win", "prob_draw", "prob_away_win")
 
@@ -45,7 +45,7 @@ def _outcome(home_goals: int, away_goals: int) -> int:
 
 def _reconstruct_prediction(
     home: Team, away: Team, dc_params: Dict, calibration: Dict,
-    weights: Tuple[float, float, float],
+    weights: Tuple[float, float, float], gbm=None, forms=None,
 ) -> Dict[str, float]:
     """1x2 probabilities for a fixture via the live ensemble path."""
     from pipeline.features.seed_ratings import host_advantages
@@ -61,7 +61,7 @@ def _reconstruct_prediction(
     lam_a *= c_away
     dc = predict_match(lam_h, lam_a, rho=dc_params.get("rho", -0.1))
     elo_diff = home.elo_rating - away.elo_rating
-    xgb = _elo_1x2(elo_diff)
+    xgb = second_opinion_1x2(gbm, forms, home.name, away.name, home.elo_rating, away.elo_rating)
     return blend_predictions(dc, xgb, elo_diff, weights)
 
 
@@ -94,6 +94,19 @@ def backtest(
     calibration = calibration or {"off_home": 0.0, "off_away": 0.0}
     weights = load_weights()
 
+    # Score the SAME models the live pipeline uses: trained GBM + recent form
+    # when available, else the ELO-logistic fallback inside second_opinion_1x2.
+    gbm, forms = None, None
+    try:
+        from pipeline.models.goals_gbm import load as load_gbm
+        from pipeline.features.historical_elo import recent_form
+        from pipeline.ingestion.historical import load_matches as load_hist
+        gbm = load_gbm()
+        if gbm is not None:
+            forms = recent_form(load_hist())
+    except Exception:  # noqa: BLE001 — backtest must never hard-fail
+        gbm, forms = None, None
+
     teams = {t.id: t for t in db.query(Team).all()}
     rows = (
         db.query(Match)
@@ -119,7 +132,7 @@ def backtest(
         h, a = teams.get(m.home_team_id), teams.get(m.away_team_id)
         if h is None or a is None:
             continue
-        probs = _reconstruct_prediction(h, a, dc_params, calibration, weights)
+        probs = _reconstruct_prediction(h, a, dc_params, calibration, weights, gbm, forms)
         outcome = _outcome(m.home_goals, m.away_goals)
         p_vec = [probs[k] for k in _KEYS]
 

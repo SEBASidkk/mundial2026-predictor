@@ -164,6 +164,14 @@ export interface ReliabilityBin {
   count: number;
 }
 
+export interface HoldoutMetrics {
+  n: number;
+  brier: number;
+  baseline_brier: number;
+  log_loss: number;
+  accuracy: number;
+}
+
 export interface ModelMetrics {
   n: number;
   brier: number | null;
@@ -178,6 +186,7 @@ export interface ModelMetrics {
     goal_offset_away: number;
     calibrated_from: number;
   };
+  holdout?: HoldoutMetrics | null;
 }
 
 export interface StandingsResponse {

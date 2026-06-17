@@ -17,20 +17,29 @@ from pipeline.ingestion.football_data import (
     fetch_historical_matches,
 )
 from pipeline.ingestion.odds_api import fetch_odds, map_events_to_matches
+from pipeline.ingestion.historical import load_matches
 from pipeline.features.elo import compute_elo_ratings
-from pipeline.features.seed_ratings import seed_team_elos, strengths_from_elo, host_advantages
+from pipeline.features.historical_elo import run_elo, recent_form
+from pipeline.features.seed_ratings import (
+    seed_team_elos, strengths_from_elo, host_advantages, HOST_TEAMS, SEED_ELO, DEFAULT_ELO,
+)
+from pipeline.features.dc_fit import fit_from_history, save_dc_params
 from pipeline.features.calibration import (
     updated_elos,
     compute_goal_calibration,
     team_base_lambdas,
 )
 from pipeline.models.dixon_coles import fit_dixon_coles, predict_match
+from pipeline.models.goals_gbm import (
+    train_and_save as train_gbm, evaluate_holdout, save_holdout, GoalsGBM,
+)
 from pipeline.models.ensemble import (
     blend_predictions,
     compute_confidence,
     elo_to_prob,
     fit_ensemble_weights,
     save_weights,
+    second_opinion_1x2,
     DEFAULT_WEIGHTS,
 )
 
@@ -100,7 +109,8 @@ def upsert_odds(db: Session):
     log.info(f"Upserted {len(rows)} odds rows")
 
 
-def build_weight_samples(db: Session, dc_params: dict, calibration: dict):
+def build_weight_samples(db: Session, dc_params: dict, calibration: dict,
+                         gbm=None, forms=None):
     """(dc_probs, xgb_probs, elo_diff, outcome) tuples from played matches,
     used to learn the ensemble weights."""
     c_home = math.exp(calibration.get("off_home", 0.0))
@@ -122,13 +132,7 @@ def build_weight_samples(db: Session, dc_params: dict, calibration: dict):
         lam_a *= c_away
         dc = predict_match(lam_h, lam_a, rho=dc_params.get("rho", -0.1))
         elo_diff = h.elo_rating - a.elo_rating
-        e_home = elo_to_prob(elo_diff)
-        draw_base = 0.24
-        xgb = {
-            "prob_home_win": e_home * (1 - draw_base),
-            "prob_draw": draw_base,
-            "prob_away_win": (1 - e_home) * (1 - draw_base),
-        }
+        xgb = second_opinion_1x2(gbm, forms, h.name, a.name, h.elo_rating, a.elo_rating)
         hg, ag = m["home_goals"], m["away_goals"]
         outcome = 0 if hg > ag else (1 if hg == ag else 2)
         samples.append((dc, xgb, elo_diff, outcome))
@@ -136,7 +140,7 @@ def build_weight_samples(db: Session, dc_params: dict, calibration: dict):
 
 
 def run_predictions(db: Session, dc_params: dict, elo_ratings: dict,
-                    calibration: dict = None, weights=None):
+                    calibration: dict = None, weights=None, gbm=None, forms=None):
     calibration = calibration or {"off_home": 0.0, "off_away": 0.0}
     weights = weights or DEFAULT_WEIGHTS
     c_home = math.exp(calibration.get("off_home", 0.0))
@@ -169,16 +173,13 @@ def run_predictions(db: Session, dc_params: dict, elo_ratings: dict,
             elo_ratings.get(h_ext, home_team.elo_rating)
             - elo_ratings.get(a_ext, away_team.elo_rating)
         )
-        # Second, genuinely independent model: an ELO-logistic 1x2 (vs the
-        # score-based Dixon-Coles). Their disagreement drives model_confidence,
-        # which previously collapsed to 1.0 because this slot just copied DC.
-        e_home = elo_to_prob(elo_diff)
-        draw_base = 0.24
-        xgb_result = {
-            "prob_home_win": e_home * (1 - draw_base),
-            "prob_draw": draw_base,
-            "prob_away_win": (1 - e_home) * (1 - draw_base),
-        }
+        # Second, genuinely independent model: the trained Poisson-GBM (real ML
+        # on real history) when available, else an ELO-logistic. Its disagreement
+        # with Dixon-Coles drives model_confidence.
+        xgb_result = second_opinion_1x2(
+            gbm, forms, home_team.name, away_team.name,
+            home_team.elo_rating, away_team.elo_rating,
+        )
         blended = blend_predictions(dc_result, xgb_result, elo_diff, weights)
         confidence = compute_confidence(dc_result, xgb_result, blended)
 
@@ -218,44 +219,68 @@ def run():
         matches_data = fetch_world_cup_matches()
         upsert_matches(db, matches_data)
 
-        historical = fetch_historical_matches(seasons=[2018, 2022])
+        # Real history (martj42, ~49k matches). Drives data ELOs, the DC fit and
+        # the gradient-boosted goals model. Falls back to seed ELOs if unavailable.
+        history = load_matches()
+        gbm: GoalsGBM | None = None
+        forms = None
 
-        # No historical results from the free API tier → seed approximate ELOs so
-        # teams (and therefore predictions) are differentiated instead of uniform.
-        if not historical:
+        if history:
+            data_elos, feature_rows = run_elo(history)
+            forms = recent_form(history)
+            teams = db.query(Team).all()
+            mapped = 0
+            for t in teams:
+                if t.name in data_elos:
+                    t.elo_rating = data_elos[t.name]
+                    mapped += 1
+                else:
+                    t.elo_rating = SEED_ELO.get(t.name, DEFAULT_ELO)
+            db.commit()
+            log.info("Data ELOs from %d historical matches (%d/%d WC teams mapped).",
+                     len(history), mapped, len(teams))
+
+            name_to_ext = {t.name: t.external_id for t in teams}
+            dc_params = fit_from_history(history, set(name_to_ext), name_to_ext) or {
+                "attack": {}, "defense": {}, "home_advantage": 0.3, "rho": -0.1,
+            }
+            save_dc_params(dc_params)
+            gbm = train_gbm(feature_rows)
+            holdout = evaluate_holdout(feature_rows)
+            if holdout:
+                save_holdout(holdout)
+                log.info(
+                    "GBM out-of-sample (%d matches): Brier %.3f (base %.3f), "
+                    "acc %.1f%%, log-loss %.3f",
+                    holdout["n"], holdout["brier"], holdout["baseline_brier"],
+                    holdout["accuracy"] * 100, holdout["log_loss"],
+                )
+        else:
             n = seed_team_elos(db)
-            log.info(f"No historical data — seeded {n} team ELO ratings")
+            log.info("No historical data — seeded %d team ELO ratings", n)
+            dc_params = {"attack": {}, "defense": {}, "home_advantage": 0.3, "rho": -0.1}
 
-        dc_params = fit_dixon_coles(historical) if historical else {
-            "attack": {}, "defense": {}, "home_advantage": 0.3, "rho": -0.1,
-        }
+        # elo_ratings dict left empty: team_base_lambdas / ELO terms read the
+        # persisted Team.elo_rating (the data ELO) via fallback.
+        elo_ratings: dict = {}
 
-        # Recency: re-rate teams from this tournament's real results, persist.
-        elo_ratings = updated_elos(db)
-        for t in db.query(Team).all():
-            if t.id in elo_ratings:
-                t.elo_rating = elo_ratings[t.id]
-        db.commit()
-
-        # Calibrate the global goal level against actual scorelines (kills the
-        # Under bias when the prior under-predicts goals).
+        # Calibrate the global goal level against actual scorelines.
         calibration = compute_goal_calibration(db, dc_params)
         log.info(
             f"Goal calibration from {calibration['n']} played matches: "
-            f"home x{math.exp(calibration['off_home']):.3f}, "
-            f"away x{math.exp(calibration['off_away']):.3f}"
+            f"x{math.exp(calibration['off_home']):.3f} (global)"
         )
 
-        # Learn ensemble weights from played matches (default until enough data).
-        samples = build_weight_samples(db, dc_params, calibration)
+        # Learn ensemble weights from played matches (shrunk toward defaults).
+        samples = build_weight_samples(db, dc_params, calibration, gbm, forms)
         weights = fit_ensemble_weights(samples)
         save_weights(weights)
         log.info(
-            "Ensemble weights (DC/XGB/ELO) from %d samples: %.3f / %.3f / %.3f",
+            "Ensemble weights (DC/GBM/ELO) from %d samples: %.3f / %.3f / %.3f",
             len(samples), *weights,
         )
 
-        run_predictions(db, dc_params, elo_ratings, calibration, weights)
+        run_predictions(db, dc_params, elo_ratings, calibration, weights, gbm, forms)
         upsert_odds(db)
         log.info("Pipeline complete.")
     finally:

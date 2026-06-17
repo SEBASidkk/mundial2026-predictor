@@ -61,6 +61,30 @@ def blend_predictions(
     return {k: v / total for k, v in out.items()}
 
 
+def second_opinion_1x2(gbm, forms, home_name, away_name, home_elo, away_elo) -> Dict[str, float]:
+    """The ensemble's independent second model: the trained Poisson-GBM (real ML
+    on real history) when available, else an ELO-logistic. Shared by the live
+    pipeline and the backtest so both score the same model."""
+    if gbm is not None:
+        from pipeline.models.dixon_coles import predict_match
+        from pipeline.features.seed_ratings import HOST_TEAMS
+
+        neutral = home_name not in HOST_TEAMS  # host listed home = real home edge
+        forms = forms or {}
+        hf = forms.get(home_name, (1.2, 1.2))
+        af = forms.get(away_name, (1.2, 1.2))
+        lam_h, lam_a = gbm.predict(home_elo, away_elo, neutral, hf, af)
+        r = predict_match(lam_h, lam_a, rho=-0.1)
+        return {k: r[k] for k in ("prob_home_win", "prob_draw", "prob_away_win")}
+    e_home = elo_to_prob(home_elo - away_elo)
+    draw_base = 0.24
+    return {
+        "prob_home_win": e_home * (1 - draw_base),
+        "prob_draw": draw_base,
+        "prob_away_win": (1 - e_home) * (1 - draw_base),
+    }
+
+
 def _entropy_sharpness(probs: Dict[str, float]) -> float:
     """1 - normalised Shannon entropy of a 3-way distribution → [0, 1]."""
     vals = [max(1e-9, probs[k]) for k in ("prob_home_win", "prob_draw", "prob_away_win")]

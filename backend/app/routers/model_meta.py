@@ -6,6 +6,8 @@ from app.models.prediction import Prediction
 from pipeline.models.ensemble import load_weights
 from pipeline.features.backtest import backtest
 from pipeline.features.calibration import compute_goal_calibration
+from pipeline.features.dc_fit import load_dc_params
+from pipeline.models.goals_gbm import load_holdout
 
 router = APIRouter()
 
@@ -28,12 +30,13 @@ def get_model_meta(db: Session = Depends(get_db)):
         },
         "weights_source": "learned (log-loss min on played matches)",
         "methodology": (
-            "Dixon-Coles (1997) + ELO-logistic, weights learned by log-loss "
-            "minimisation. Bivariate Poisson for exact scores. Goal rates scale "
-            "with ELO (k=0.72); home edge applies only to the 2026 hosts "
-            "(MX/USA/CAN) since every match is at a neutral North-American venue. "
-            "Recency ELO re-rating + a single global goal-level calibration "
-            "(no home/away asymmetry) keep the scoring level honest."
+            "Ensemble of Dixon-Coles (attack/defense fit on real recent results), "
+            "a gradient-boosted Poisson goals model (trained on ~49k historical "
+            "internationals, 1872–present), and an ELO term — weights learned by "
+            "log-loss minimisation. ELOs are computed from real match history "
+            "(World-Football-Elo style). Home edge applies only to the 2026 hosts "
+            "(MX/USA/CAN); every other match is treated as neutral. A single "
+            "global goal-level calibration keeps the scoring level honest."
         ),
     }
 
@@ -42,11 +45,15 @@ def get_model_meta(db: Session = Depends(get_db)):
 def get_model_metrics(db: Session = Depends(get_db)):
     """Backtest metrics over played matches: Brier, log-loss, accuracy,
     reliability curve and betting ROI. Cheap enough to compute on request."""
-    calibration = compute_goal_calibration(db, _DC_FALLBACK)
-    metrics = backtest(db, _DC_FALLBACK, calibration)
+    dc_params = load_dc_params() or _DC_FALLBACK
+    calibration = compute_goal_calibration(db, dc_params)
+    metrics = backtest(db, dc_params, calibration)
     metrics["calibration"] = {
         "goal_offset_home": round(calibration["off_home"], 4),
         "goal_offset_away": round(calibration["off_away"], 4),
         "calibrated_from": calibration["n"],
     }
+    # The honest precision number: held-out test over thousands of historical
+    # matches (the WC-only backtest above is far too small to trust).
+    metrics["holdout"] = load_holdout()
     return metrics

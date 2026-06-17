@@ -24,8 +24,12 @@ env/
 .coverage
 htmlcov/
 
-# Generated model state (learned ensemble weights)
+# Generated model state (learned ensemble weights) + trained models + datasets
 backend/model_state.json
+backend/gbm_model.pkl
+backend/dc_params.json
+backend/holdout_metrics.json
+backend/data/
 
 # IDE
 .vscode/
